@@ -82,6 +82,7 @@ bool consume(char* op) {
   return true;
 }
 
+// ここではtokenの情報を返す (他はトークンをそのまま読み進めるだけ)
 Token* consume_ident() {
   if (token->kind != TK_IDENT) return NULL;
   Token* tok = token;
@@ -240,11 +241,24 @@ Node* primary() {
   }
 
   Token* tok = consume_ident();
-
   if (tok) {
     Node* node = calloc(1, sizeof(Node));
-    node->kind = ND_LVAR;
 
+    if (consume("(")) {
+      node->kind = ND_CALL;
+      if (consume(")"))
+        ;
+    } else {
+      node->kind = ND_LVAR;
+    }
+
+    // 関数呼び出しの場合は関数名を設定
+    if (node->kind == ND_CALL) {
+      node->funcname = strndup(tok->str, tok->len);
+      return node;
+    }
+
+    // 変数の場合
     LVar* lvar = find_lvar(tok);
     if (lvar) {
       node->offset = lvar->offset;

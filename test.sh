@@ -38,5 +38,16 @@ assert 5 "a = 2; while(a < 5) a = a + 1; return a;"
 assert 3 "a = 2; if ( a == 3) { return 0; } else {return 3;}"
 assert 4 "a = 2; if (a == 2) { a = 3; a = a + 1;  return a; }";
 
+echo '#include <stdio.h>
+int foo() {
+    printf("OK\n");
+    return 0;
+}' > foo.c
+
+cc -target x86_64-apple-darwin -c foo.c -o foo.o
+./9cc "return foo();" > tmp.s
+cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
+./tmp
+
 
 echo OK

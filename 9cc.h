@@ -26,6 +26,7 @@ typedef enum {
   ND_FOR,     // for
   ND_WHILE,   // while
   ND_BLOCK,   // block
+  ND_CALL,    // 関数呼び出し
 } NodeKind;
 
 // トークンの種類
@@ -64,11 +65,12 @@ struct Token {
 
 // 抽象構文木のノードの型
 struct Node {
-  NodeKind kind;  // ノードの型
-  Node* lhs;      // 左辺
-  Node* rhs;      // 右辺
-  int val;        // kindがND_NUMの場合のみ使う
-  int offset;     // kindがND_LVARの場合のみ使う
+  NodeKind kind;   // ノードの型
+  Node* lhs;       // 左辺
+  Node* rhs;       // 右辺
+  int val;         // kindがND_NUMの場合のみ使う
+  int offset;      // kindがND_LVARの場合のみ使う
+  char* funcname;  // 関数名
   struct {
     Node* cond;  // ifの条件式
     Node* then;  // 真の時

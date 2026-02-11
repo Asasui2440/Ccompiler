@@ -89,6 +89,12 @@ void gen(Node* node) {
     return;
   }
 
+  if (node->kind == ND_CALL) {
+    printf("  call _%s\n", node->funcname);  // 関数名にアンダースコアを追加
+    printf("  push rax\n");                  // 関数の戻り値をスタックにプッシュ
+    return;
+  }
+
   switch (node->kind) {
     case ND_NUM:
       printf("  push %d\n", node->val);
