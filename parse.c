@@ -5,6 +5,23 @@ Token* token;
 char* user_input;
 Node* code[100];
 LVar* locals;
+Vector* stms;
+
+Vector* new_vector() {
+  Vector* vec = calloc(1, sizeof(Vector));
+  vec->capacity = 16;  // 初期容量
+  vec->data = calloc(vec->capacity, sizeof(Node*));
+  vec->len = 0;
+  return vec;
+}
+
+void vec_push(Vector* vec, Node* elem) {
+  if (vec->len == vec->capacity) {
+    vec->capacity *= 2;
+    vec->data = realloc(vec->data, vec->capacity * sizeof(Node*));
+  }
+  vec->data[vec->len++] = elem;
+}
 
 Node* new_node(NodeKind kind) {
   Node* node = calloc(1, sizeof(Node));
@@ -78,6 +95,30 @@ bool consume_return() {
   return true;
 }
 
+bool consume_if() {
+  if (token->kind != TK_IF) return false;
+  token = token->next;
+  return true;
+}
+
+bool consume_while() {
+  if (token->kind != TK_WHILE) return false;
+  token = token->next;
+  return true;
+}
+
+bool consume_for() {
+  if (token->kind != TK_FOR) return false;
+  token = token->next;
+  return true;
+}
+
+bool consume_else() {
+  if (token->kind != TK_ELSE) return false;
+  token = token->next;
+  return true;
+}
+
 // 次のトークンが期待している記号のときには、トークンを1つ読み進める。
 // それ以外の場合にはエラーを報告する。
 void expect(char* op) {
@@ -125,15 +166,68 @@ void program() {
 Node* stmt() {
   Node* node;
 
-  if (consume_return()) {
-    node = new_node(ND_RETURN);
-    node->lhs = expr();
-  } else {
-    node = expr();
+  if (consume("{")) {  // ブロックの開始
+    node = new_node(ND_BLOCK);
+    Vector* stmts = new_vector();
+
+    while (!consume("}")) {  // `}` が出現するまで繰り返す
+      vec_push(stmts, stmt());
+    }
+
+    node->stmts = stmts->data;
+    node->stmts_len = stmts->len;
+    free(stmts);  // Vector 構造体自体は解放
+    return node;
   }
 
-  if (!consume(";"))
-    error_at(token->str, user_input, "';'ではないトークンです");
+  if (consume_return()) {
+    node = new_node(ND_RETURN);
+    node->lhs = expr();  // 式を解析して左辺に格納
+    expect(";");
+    return node;
+  }
+
+  if (consume_if()) {
+    node = new_node(ND_IF);
+    expect("(");
+    node->cond = expr();  // 条件式
+    expect(")");
+    node->then = stmt();                     // then ブロック
+    if (consume_else()) node->els = stmt();  // else ブロック（オプション）
+    return node;
+  }
+
+  if (consume_while()) {
+    node = new_node(ND_WHILE);
+    expect("(");
+    node->cond = expr();  // 条件式
+    expect(")");
+    node->body = stmt();  // ループ本体
+    return node;
+  }
+
+  if (consume_for()) {
+    node = new_node(ND_FOR);
+    expect("(");
+    if (!consume(";")) {
+      node->init = expr();  // 初期化式
+      expect(";");
+    }
+    if (!consume(";")) {
+      node->cond = expr();  // 条件式
+      expect(";");
+    }
+    if (!consume(")")) {
+      node->inc = expr();  // 更新式
+      expect(")");
+    }
+    node->body = stmt();  // ループ本体
+    return node;
+  }
+
+  // 通常の式文
+  node = expr();
+  expect(";");
   return node;
 }
 
@@ -263,9 +357,29 @@ Token* tokenize(char* p) {
       continue;
     }
 
+    if (strncmp(p, "if", 2) == 0 && !is_alnum(p[2])) {
+      cur = new_token(TK_IF, cur, p, 2);
+      p += 2;
+      continue;
+    }
+    if (strncmp(p, "while", 5) == 0 && !is_alnum(p[5])) {
+      cur = new_token(TK_WHILE, cur, p, 5);
+      p += 5;
+      continue;
+    }
+    if (strncmp(p, "for", 3) == 0 && !is_alnum(p[3])) {
+      cur = new_token(TK_FOR, cur, p, 3);
+      p += 3;
+      continue;
+    }
     if (strncmp(p, "return", 6) == 0 && !is_alnum(p[6])) {
       cur = new_token(TK_RETURN, cur, p, 6);
       p += 6;
+      continue;
+    }
+    if (strncmp(p, "else", 4) == 0 && !is_alnum(p[4])) {
+      cur = new_token(TK_ELSE, cur, p, 4);
+      p += 4;
       continue;
     }
 
@@ -276,7 +390,7 @@ Token* tokenize(char* p) {
       continue;
     }
 
-    if (strchr("+-*/()<>=;", *p)) {
+    if (strchr("+-*/()<>=;{}", *p)) {
       cur = new_token(TK_RESERVED, cur, p++, 1);
       continue;
     }

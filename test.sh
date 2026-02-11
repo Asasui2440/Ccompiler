@@ -33,5 +33,10 @@ assert 0 "1>=2;"
 assert 1 "1>=1;"
 assert 1 "return 1>0;"
 assert 4 "a = 2; b = 2; return a+b;"
+assert 1 "a = 2; if (a == 2) { return 1; }"
+assert 5 "a = 2; while(a < 5) a = a + 1; return a;"
+assert 3 "a = 2; if ( a == 3) { return 0; } else {return 3;}"
+assert 4 "a = 2; if (a == 2) { a = 3; a = a + 1;  return a; }";
+
 
 echo OK

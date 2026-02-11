@@ -22,6 +22,10 @@ typedef enum {
   ND_ASSIGN,  // =
   ND_LVAR,    // ローカル変数
   ND_RETURN,  // return
+  ND_IF,      // if
+  ND_FOR,     // for
+  ND_WHILE,   // while
+  ND_BLOCK,   // block
 } NodeKind;
 
 // トークンの種類
@@ -31,6 +35,10 @@ typedef enum {
   TK_NUM,       // 整数トークン
   TK_EOF,       // 入力の終わりを表すトークン
   TK_RETURN,    // return
+  TK_IF,        // if
+  TK_ELSE,      // else
+  TK_FOR,       // for
+  TK_WHILE,     // while
 } TokenKind;
 
 typedef struct Node Node;
@@ -61,19 +69,42 @@ struct Node {
   Node* rhs;      // 右辺
   int val;        // kindがND_NUMの場合のみ使う
   int offset;     // kindがND_LVARの場合のみ使う
+  struct {
+    Node* cond;  // ifの条件式
+    Node* then;  // 真の時
+    Node* els;   // 偽の時
+    Node* init;  // forの初期条件
+    Node* inc;   // 更新式
+    Node* body;  // 文
+  };
+
+  Node** stmts;
+  int stmts_len;
 };
+
+typedef struct {
+  Node** data;
+  int capacity;
+  int len;
+} Vector;
 
 // グローバル変数
 extern Token* token;
 extern char* user_input;
 extern Node* code[100];
 extern LVar* locals;
-
+extern int flag_cnt;
+extern Vector* stms;
 // parse.c
 void error(char* fmt, ...);
 void error_at(char* loc, char* input, char* fmt, ...);
 bool consume(char* op);
 Token* consume_ident();
+bool consume_return();
+bool consume_if();
+bool consume_while();
+bool consume_for();
+bool consume_else();
 void expect(char* op);
 int expect_number();
 bool at_eof();
