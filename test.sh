@@ -4,7 +4,7 @@ assert() {
   input="$2"
 
   ./9cc "$input" > tmp.s
-  cc -target x86_64-apple-darwin -o tmp.x tmp.s  
+  cc -target x86_64-apple-darwin -o tmp.x tmp.s 
   ./tmp.x
   actual="$?"
 
@@ -49,5 +49,13 @@ cc -target x86_64-apple-darwin -c foo.c -o foo.o
 cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
 ./tmp
 
+
+echo '#include <stdio.h>
+void foo(int x, int y) { printf("%d\n", x + y); }' > foo.c
+
+cc -target x86_64-apple-darwin -c foo.c -o foo.o
+./9cc "foo(3, 4);" > tmp.s
+cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
+./tmp
 
 echo OK

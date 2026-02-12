@@ -90,6 +90,19 @@ void gen(Node* node) {
   }
 
   if (node->kind == ND_CALL) {
+    char* arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+
+    // 引数を評価してスタックに積む
+    for (int i = 0; i < node->stmts_len; i++) {
+      gen(node->stmts[i]);
+    }
+
+    // スタックから引数をポップしてレジスタに格納
+    // 最後の引数から順にポップして、最初の引数がrdiに入るようにする
+    for (int i = node->stmts_len - 1; i >= 0; i--) {
+      printf("  pop %s\n", arg_regs[i]);
+    }
+
     printf("  call _%s\n", node->funcname);  // 関数名にアンダースコアを追加
     printf("  push rax\n");                  // 関数の戻り値をスタックにプッシュ
     return;

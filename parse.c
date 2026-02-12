@@ -244,38 +244,46 @@ Node* primary() {
   if (tok) {
     Node* node = calloc(1, sizeof(Node));
 
+    // 関数呼び出しだった場合
     if (consume("(")) {
       node->kind = ND_CALL;
-      if (consume(")"))
-        ;
-    } else {
-      node->kind = ND_LVAR;
-    }
-
-    // 関数呼び出しの場合は関数名を設定
-    if (node->kind == ND_CALL) {
       node->funcname = strndup(tok->str, tok->len);
+      Vector* args = new_vector();
+
+      // 引数がある時
+      if (!consume(")")) {
+        vec_push(args, expr());
+        while (consume(",")) {
+          vec_push(args, expr());
+        }
+        expect(")");
+      }
+      node->stmts = args->data;
+      node->stmts_len = args->len;
+      free(args);
+      return node;
+
+    } else {
+      // 変数の場合
+      node->kind = ND_LVAR;
+      LVar* lvar = find_lvar(tok);
+      if (lvar) {
+        node->offset = lvar->offset;
+      } else {
+        lvar = calloc(1, sizeof(LVar));
+        lvar->next = locals;
+        lvar->name = tok->str;
+        lvar->len = tok->len;
+        if (locals) {
+          lvar->offset = locals->offset + 16;
+        } else {
+          lvar->offset = 16;
+        }
+        node->offset = lvar->offset;
+        locals = lvar;
+      }
       return node;
     }
-
-    // 変数の場合
-    LVar* lvar = find_lvar(tok);
-    if (lvar) {
-      node->offset = lvar->offset;
-    } else {
-      lvar = calloc(1, sizeof(LVar));
-      lvar->next = locals;
-      lvar->name = tok->str;
-      lvar->len = tok->len;
-      if (locals) {
-        lvar->offset = locals->offset + 16;
-      } else {
-        lvar->offset = 16;
-      }
-      node->offset = lvar->offset;
-      locals = lvar;
-    }
-    return node;
   }
 
   // そうでなければ数値のはず
@@ -404,7 +412,7 @@ Token* tokenize(char* p) {
       continue;
     }
 
-    if (strchr("+-*/()<>=;{}", *p)) {
+    if (strchr(",+-*/()<>=;{}", *p)) {
       cur = new_token(TK_RESERVED, cur, p++, 1);
       continue;
     }
