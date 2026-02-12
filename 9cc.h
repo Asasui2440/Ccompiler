@@ -44,6 +44,7 @@ typedef enum {
   TK_ELSE,      // else
   TK_FOR,       // for
   TK_WHILE,     // while
+  TK_INT,       // int
 } TokenKind;
 
 typedef struct Node Node;

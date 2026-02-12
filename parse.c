@@ -96,6 +96,12 @@ bool consume_return() {
   return true;
 }
 
+bool consume_int() {
+  if (token->kind != TK_INT) return false;
+  token = token->next;
+  return true;
+}
+
 bool consume_if() {
   if (token->kind != TK_IF) return false;
   token = token->next;
@@ -139,6 +145,15 @@ int expect_number() {
   return val;
 }
 
+// 次のトークンがintの場合、トークンを1つ読み進める。
+// それ以外の場合にはエラーを報告する。
+int expect_int() {
+  if (token->kind != TK_INT) {
+    error_at(token->str, user_input, "int型が必要です");
+  }
+  token = token->next;
+}
+
 // 新しいトークンを作成してcurに繋げる
 Token* new_token(TokenKind kind, Token* cur, char* str, int len) {
   Token* tok = calloc(1, sizeof(Token));
@@ -160,6 +175,7 @@ bool startswith(char* p, char* q) { return memcmp(p, q, strlen(q)) == 0; }
 
 // 関数定義をパース
 Node* function() {
+  expect_int();
   Token* tok = consume_ident();
   if (!tok) {
     error("関数名がありません");
@@ -173,6 +189,7 @@ Node* function() {
   Vector* params = new_vector();
 
   if (!consume(")")) {
+    expect_int();
     Token* param = consume_ident();
     if (param) {
       Node* p = new_node(ND_LVAR);
@@ -301,6 +318,23 @@ Node* primary() {
     return node;
   }
 
+  if (consume_int()) {
+    Node* node = new_node(ND_LVAR);
+    Token* tok = consume_ident();
+    LVar* lvar = calloc(1, sizeof(LVar));
+    lvar->next = locals;
+    lvar->name = tok->str;
+    lvar->len = tok->len;
+    if (locals) {
+      lvar->offset = locals->offset + 16;
+    } else {
+      lvar->offset = 16;
+    }
+    node->offset = lvar->offset;
+    locals = lvar;
+    return node;
+  }
+
   Token* tok = consume_ident();
   if (tok) {
     Node* node = calloc(1, sizeof(Node));
@@ -331,17 +365,8 @@ Node* primary() {
       if (lvar) {
         node->offset = lvar->offset;
       } else {
-        lvar = calloc(1, sizeof(LVar));
-        lvar->next = locals;
-        lvar->name = tok->str;
-        lvar->len = tok->len;
-        if (locals) {
-          lvar->offset = locals->offset + 16;
-        } else {
-          lvar->offset = 16;
-        }
-        node->offset = lvar->offset;
-        locals = lvar;
+        printf("変数が定義されていません\n");
+        exit(1);
       }
       return node;
     }
@@ -473,6 +498,12 @@ Token* tokenize(char* p) {
     if (strncmp(p, "else", 4) == 0 && !is_alnum(p[4])) {
       cur = new_token(TK_ELSE, cur, p, 4);
       p += 4;
+      continue;
+    }
+
+    if (strncmp(p, "int", 3) == 0 && !is_alnum(p[3])) {
+      cur = new_token(TK_INT, cur, p, 3);
+      p += 3;
       continue;
     }
 

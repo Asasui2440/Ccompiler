@@ -4,7 +4,7 @@ assert() {
   input="$2"
 
   # 自動的にmain()で囲む
-  input="main() { $input }"
+  input="int main() { $input }"
 
   ./9cc "$input" > tmp.s
   cc -target x86_64-apple-darwin -o tmp.x tmp.s 
@@ -35,11 +35,11 @@ assert 1 "1<=2;"
 assert 0 "1>=2;"
 assert 1 "1>=1;"
 assert 1 "return 1>0;"
-assert 4 "a = 2; b = 2; return a+b;"
-assert 1 "a = 2; if (a == 2) { return 1; }"
-assert 5 "a = 2; while(a < 5) a = a + 1; return a;"
-assert 3 "a = 2; if ( a == 3) { return 0; } else {return 3;}"
-assert 4 "a = 2; if (a == 2) { a = 3; a = a + 1;  return a; }";
+assert 4 "int a; int b; a = 2; b = 2; return a+b;"
+assert 1 "int a; a = 2; if (a == 2) { return 1; }"
+assert 5 "int a; a = 2; while(a < 5) a = a + 1; return a;"
+assert 3 "int a; a = 2; if ( a == 3) { return 0; } else {return 3;}"
+assert 4 "int a; a = 2; if (a == 2) { a = 3; a = a + 1;  return a; }";
 
 # 引数なしの関数呼び出し
 echo '#include <stdio.h>
@@ -49,7 +49,7 @@ int foo() {
     return 0;
 }' > foo.c
 cc -target x86_64-apple-darwin -c foo.c -o foo.o
-./9cc "main() { foo(); }" > tmp.s
+./9cc "int main() { foo(); }" > tmp.s
 cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
 ./tmp
 
@@ -59,7 +59,7 @@ void foo(int x, int y) {
     printf("%d\n", x + y); 
 }' > foo.c
 cc -target x86_64-apple-darwin -c foo.c -o foo.o
-./9cc "main() {foo(3, 4);}" > tmp.s
+./9cc "int main() {foo(3, 4);}" > tmp.s
 cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
 ./tmp
 
@@ -68,7 +68,7 @@ cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
 cc -target x86_64-apple-darwin -o tmp tmp.s
 ./tmp
 
-assert 3 "x = 3; y = 5; z = &y + 16; return *z;";
+assert 3 "int x; x = 3; int y; y = 5; int z; z = &y + 16; return *z;";
 
 
 echo OK
