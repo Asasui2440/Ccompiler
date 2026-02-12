@@ -402,6 +402,16 @@ Node* assign() {
 Node* unary() {
   if (consume("+")) return primary();
   if (consume("-")) return new_binary(ND_SUB, new_node_num(0), primary());
+  if (consume("*")) {
+    Node* node = new_node(ND_DEREF);
+    node->lhs = unary();
+    return node;
+  }
+  if (consume("&")) {
+    Node* node = new_node(ND_ADDR);
+    node->lhs = unary();
+    return node;
+  }
   return primary();
 }
 
@@ -473,7 +483,7 @@ Token* tokenize(char* p) {
       continue;
     }
 
-    if (strchr(",+-*/()<>=;{}", *p)) {
+    if (strchr(",+-*/()<>=;{}&", *p)) {
       cur = new_token(TK_RESERVED, cur, p++, 1);
       continue;
     }

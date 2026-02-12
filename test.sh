@@ -68,5 +68,7 @@ cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
 cc -target x86_64-apple-darwin -o tmp tmp.s
 ./tmp
 
+assert 3 "x = 3; y = 5; z = &y + 16; return *z;";
+
 
 echo OK
