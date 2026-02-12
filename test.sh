@@ -3,6 +3,9 @@ assert() {
   expected="$1"
   input="$2"
 
+  # 自動的にmain()で囲む
+  input="main() { $input }"
+
   ./9cc "$input" > tmp.s
   cc -target x86_64-apple-darwin -o tmp.x tmp.s 
   ./tmp.x
@@ -38,24 +41,32 @@ assert 5 "a = 2; while(a < 5) a = a + 1; return a;"
 assert 3 "a = 2; if ( a == 3) { return 0; } else {return 3;}"
 assert 4 "a = 2; if (a == 2) { a = 3; a = a + 1;  return a; }";
 
+# 引数なしの関数呼び出し
 echo '#include <stdio.h>
 int foo() {
-    printf("OK\n");
+    printf("OK");
+    printf("\n");
     return 0;
 }' > foo.c
-
 cc -target x86_64-apple-darwin -c foo.c -o foo.o
-./9cc "return foo();" > tmp.s
+./9cc "main() { foo(); }" > tmp.s
 cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
 ./tmp
 
-
+# 引数ありの関数呼び出し
 echo '#include <stdio.h>
-void foo(int x, int y) { printf("%d\n", x + y); }' > foo.c
-
+void foo(int x, int y) { 
+    printf("%d\n", x + y); 
+}' > foo.c
 cc -target x86_64-apple-darwin -c foo.c -o foo.o
-./9cc "foo(3, 4);" > tmp.s
+./9cc "main() {foo(3, 4);}" > tmp.s
 cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
 ./tmp
+
+# 関数定義 フィボナッチ数列
+./9cc "$(cat fib.txt)" > tmp.s
+cc -target x86_64-apple-darwin -o tmp tmp.s
+./tmp
+
 
 echo OK

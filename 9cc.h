@@ -10,23 +10,25 @@
 
 // 抽象構文木のノードの種類
 typedef enum {
-  ND_ADD,     // +
-  ND_SUB,     // -
-  ND_MUL,     // *
-  ND_DIV,     // /
-  ND_NUM,     // 整数
-  ND_EQ,      // ==
-  ND_NE,      // !=
-  ND_LE,      // <=
-  ND_LT,      // <
-  ND_ASSIGN,  // =
-  ND_LVAR,    // ローカル変数
-  ND_RETURN,  // return
-  ND_IF,      // if
-  ND_FOR,     // for
-  ND_WHILE,   // while
-  ND_BLOCK,   // block
-  ND_CALL,    // 関数呼び出し
+  ND_ADD,      // +
+  ND_SUB,      // -
+  ND_MUL,      // *
+  ND_DIV,      // /
+  ND_NUM,      // 整数
+  ND_EQ,       // ==
+  ND_NE,       // !=
+  ND_LE,       // <=
+  ND_LT,       // <
+  ND_ASSIGN,   // =
+  ND_LVAR,     // ローカル変数
+  ND_RETURN,   // return
+  ND_IF,       // if
+  ND_FOR,      // for
+  ND_WHILE,    // while
+  ND_BLOCK,    // block
+  ND_CALL,     // 関数呼び出し
+  ND_FUNC,     // 関数定義
+  ND_FUNCDEF,  // 関数パラメータ
 } NodeKind;
 
 // トークンの種類
@@ -77,11 +79,13 @@ struct Node {
     Node* els;   // 偽の時
     Node* init;  // forの初期条件
     Node* inc;   // 更新式
-    Node* body;  // 文
+    Node* body;  // 文（ND_FUNCの場合は関数本体）
   };
 
-  Node** stmts;
+  Node** stmts;  // ND_BLOCKの文リスト / ND_CALLの引数リスト
   int stmts_len;
+  Node** params;   // ND_FUNCの引数リスト
+  int params_len;  // 引数の数
 };
 
 typedef struct {
@@ -95,7 +99,7 @@ extern Token* token;
 extern char* user_input;
 extern Node* code[100];
 extern LVar* locals;
-extern int flag_cnt;
+extern int label_number;
 extern Vector* stms;
 // parse.c
 void error(char* fmt, ...);

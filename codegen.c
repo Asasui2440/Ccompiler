@@ -1,6 +1,6 @@
 #include "9cc.h"
 
-int flag_cnt = 0;
+int label_number = 0;
 void gen_lval(Node* node) {
   if (node->kind != ND_LVAR) error("代入の左辺値が変数ではありません");
   printf("  mov rax, rbp\n");
@@ -9,6 +9,31 @@ void gen_lval(Node* node) {
 }
 
 void gen(Node* node) {
+  if (node->kind == ND_FUNC) {
+    // 関数定義のコード生成
+    printf("\n_%s:\n", node->funcname);
+    printf("  push rbp\n");
+    printf("  mov rbp, rsp\n");
+    printf("  sub rsp, 416\n");  // ローカル変数用のスタック領域を確保
+
+    // 引数をスタックに保存（x86-64呼び出し規約に従う）
+    char* arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+    for (int i = 0; i < node->params_len && i < 6; i++) {
+      // 引数をメモリに保存
+      printf("  mov [rbp-%d], %s\n", node->params[i]->offset, arg_regs[i]);
+    }
+
+    // 関数本体を生成
+    gen(node->body);
+
+    // 明示的なreturnがない場合のエピローグ
+    printf("  pop rax\n");
+    printf("  mov rsp, rbp\n");
+    printf("  pop rbp\n");
+    printf("  ret\n");
+    return;
+  }
+
   if (node->kind == ND_BLOCK) {
     for (int i = 0; i < node->stmts_len; i++) {
       gen(node->stmts[i]);
@@ -31,17 +56,17 @@ void gen(Node* node) {
     gen(node->cond);
     printf("  pop rax\n");
     printf("  cmp rax, 0\n");
-    printf("  je  .Lend%d\n", flag_cnt);
+    printf("  je  .Lend%d\n", label_number);
     gen(node->then);
-    printf(".Lend%d:\n", flag_cnt);
-    flag_cnt++;
+    printf(".Lend%d:\n", label_number);
+    label_number++;
     return;
   }
 
   if (node->kind == ND_IF && node->els != NULL) {
-    int lelse = flag_cnt;
-    int lend = flag_cnt + 1;
-    flag_cnt += 2;
+    int lelse = label_number;
+    int lend = label_number + 1;
+    label_number += 2;
     gen(node->cond);
     printf("  pop rax\n");
     printf("  cmp rax, 0\n");
@@ -55,8 +80,8 @@ void gen(Node* node) {
   }
 
   if (node->kind == ND_WHILE) {
-    int lbegin = flag_cnt;
-    int lend = flag_cnt + 1;
+    int lbegin = label_number;
+    int lend = label_number + 1;
     printf(".Lbegin%d:\n", lbegin);
     gen(node->cond);
     printf("  pop rax\n");
@@ -66,13 +91,13 @@ void gen(Node* node) {
     // ループ内で return 文が実行された場合、ループを終了する
     printf("  jmp .Lbegin%d\n", lbegin);
     printf(".Lend%d:\n", lend);
-    flag_cnt += 2;
+    label_number += 2;
     return;
   }
 
   if (node->kind == ND_FOR) {
-    int lbegin = flag_cnt;
-    int lend = flag_cnt + 1;
+    int lbegin = label_number;
+    int lend = label_number + 1;
     if (node->init) gen(node->init);
     printf(".Lbegin%d:\n", lbegin);
     if (node->cond) {
@@ -85,7 +110,7 @@ void gen(Node* node) {
     if (node->inc) gen(node->inc);
     printf("  jmp .Lbegin%d\n", lbegin);
     printf(".Lend%d:\n", lend);
-    flag_cnt += 2;
+    label_number += 2;
     return;
   }
 

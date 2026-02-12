@@ -14,26 +14,38 @@ int main(int argc, char** argv) {
   // アセンブリの前半部分を出力
   printf(".intel_syntax noprefix\n");
   printf(".globl _main\n");
-  printf("_main:\n");
 
-  // プロローグ
-  // 変数26個分の領域を確保する
-  printf("  push rbp\n");
-  printf("  mov rbp, rsp\n");
-  printf("  sub rsp, 416\n");
-
+  // 関数定義を先に出力
+  bool has_main = false;
   for (int i = 0; code[i]; i++) {
-    gen(code[i]);
-
-    // 式の評価結果としてスタックに一つの値が残っている
-    // はずなので、スタックが溢れないようにポップしておく
-    printf("  pop rax\n");
+    if (code[i]->kind == ND_FUNC) {
+      if (strcmp(code[i]->funcname, "main") == 0) {
+        has_main = true;
+      }
+      gen(code[i]);
+    }
   }
 
-  // エピローグ
-  // 最後の式の結果がRAXに残っているのでそれが返り値になる
-  printf("  mov rsp, rbp\n");
-  printf("  pop rbp\n");
-  printf("  ret\n");
+  // main関数が定義されていない場合、デフォルトのmainを生成
+  if (!has_main) {
+    printf("_main:\n");
+    // プロローグ
+    printf("  push rbp\n");
+    printf("  mov rbp, rsp\n");
+    printf("  sub rsp, 416\n");
+
+    for (int i = 0; code[i]; i++) {
+      if (code[i]->kind != ND_FUNC) {
+        gen(code[i]);
+        printf("  pop rax\n");
+      }
+    }
+
+    // エピローグ
+    printf("  mov rsp, rbp\n");
+    printf("  pop rbp\n");
+    printf("  ret\n");
+  }
+
   return 0;
 }

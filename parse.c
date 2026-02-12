@@ -158,9 +158,70 @@ int is_alnum(char c) {
 // 一致していたらtrueを返す
 bool startswith(char* p, char* q) { return memcmp(p, q, strlen(q)) == 0; }
 
+// 関数定義をパース
+Node* function() {
+  Token* tok = consume_ident();
+  if (!tok) {
+    error("関数名がありません");
+  }
+
+  Node* node = new_node(ND_FUNC);
+  node->funcname = strndup(tok->str, tok->len);
+
+  // 引数リストをパース
+  expect("(");
+  Vector* params = new_vector();
+
+  if (!consume(")")) {
+    Token* param = consume_ident();
+    if (param) {
+      Node* p = new_node(ND_LVAR);
+      p->offset = 16;  // 引数の最初のオフセット
+      vec_push(params, p);
+
+      LVar* lvar = calloc(1, sizeof(LVar));
+      lvar->next = locals;
+      lvar->name = param->str;
+      lvar->len = param->len;
+      lvar->offset = 16;
+      locals = lvar;
+
+      while (consume(",")) {
+        param = consume_ident();
+        if (!param) error("引数名がありません");
+
+        p = new_node(ND_LVAR);
+        p->offset = locals->offset + 16;
+        vec_push(params, p);
+
+        lvar = calloc(1, sizeof(LVar));
+        lvar->next = locals;
+        lvar->name = param->str;
+        lvar->len = param->len;
+        lvar->offset = locals->offset + 16;
+        locals = lvar;
+      }
+    }
+    expect(")");
+  }
+
+  node->params = params->data;
+  node->params_len = params->len;
+  free(params);
+
+  // 関数本体をパース
+  node->body = stmt();
+
+  return node;
+}
+
 void program() {
   int i = 0;
-  while (!at_eof()) code[i++] = stmt();
+
+  // トップレベルでは関数定義のみを許可
+  while (!at_eof()) {
+    code[i++] = function();
+  }
   code[i] = NULL;
 }
 
