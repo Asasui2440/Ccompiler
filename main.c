@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
     // プロローグ
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
-    printf("  sub rsp, 416\n");
+    printf("  sub rsp, 208\n");
 
     for (int i = 0; code[i]; i++) {
       if (code[i]->kind != ND_FUNC) {

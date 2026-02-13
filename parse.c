@@ -9,7 +9,7 @@ Vector* stms;
 
 Vector* new_vector() {
   Vector* vec = calloc(1, sizeof(Vector));
-  vec->capacity = 16;  // 初期容量
+  vec->capacity = 8;  // 初期容量
   vec->data = calloc(vec->capacity, sizeof(Node*));
   vec->len = 0;
   return vec;
@@ -193,14 +193,14 @@ Node* function() {
     Token* param = consume_ident();
     if (param) {
       Node* p = new_node(ND_LVAR);
-      p->offset = 16;  // 引数の最初のオフセット
+      p->offset = 8;  // 引数の最初のオフセット
       vec_push(params, p);
 
       LVar* lvar = calloc(1, sizeof(LVar));
       lvar->next = locals;
       lvar->name = param->str;
       lvar->len = param->len;
-      lvar->offset = 16;
+      lvar->offset = 8;
       locals = lvar;
 
       while (consume(",")) {
@@ -208,14 +208,14 @@ Node* function() {
         if (!param) error("引数名がありません");
 
         p = new_node(ND_LVAR);
-        p->offset = locals->offset + 16;
+        p->offset = locals->offset + 8;
         vec_push(params, p);
 
         lvar = calloc(1, sizeof(LVar));
         lvar->next = locals;
         lvar->name = param->str;
         lvar->len = param->len;
-        lvar->offset = locals->offset + 16;
+        lvar->offset = locals->offset + 8;
         locals = lvar;
       }
     }
@@ -341,9 +341,9 @@ Node* primary() {
     lvar->type = typ;  // 型情報を保存
 
     if (locals) {
-      lvar->offset = locals->offset + 16;
+      lvar->offset = locals->offset + 8;
     } else {
-      lvar->offset = 16;
+      lvar->offset = 8;
     }
     node->offset = lvar->offset;
     node->type = lvar->type;

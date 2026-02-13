@@ -18,6 +18,12 @@ void gen_lval(Node* node) {
   error("代入の左辺値が変数でもポインタでもありません");
 }
 
+int size_of(Type* type) {
+  if (type->ty == PTR) return 8;  // ポインタは8バイト
+  if (type->ty == INT) return 4;  // intは4バイト
+  return 0;
+}
+
 void gen(Node* node) {
   if (node->kind == ND_FUNC) {
     // 関数定義のコード生成
