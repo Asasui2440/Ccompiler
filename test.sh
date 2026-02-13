@@ -1,4 +1,20 @@
 #!/bin/bash
+cat <<EOF > tmp2.c
+#include <stdio.h>
+#include <stdlib.h>
+void alloc4(int **p, int a, int b, int c, int d) {
+    int *int_ptr = (int *)malloc(sizeof(int) * 4);
+    int_ptr[0] = a;
+    int_ptr[1] = b;
+    int_ptr[2] = c;
+    int_ptr[3] = d;
+ 
+    *p = int_ptr;
+}
+EOF
+
+cc -target x86_64-apple-darwin -c tmp2.c -o tmp2.o
+
 assert() {
   expected="$1"
   input="$2"
@@ -7,7 +23,7 @@ assert() {
   input="int main() { $input }"
 
   ./9cc "$input" > tmp.s
-  cc -target x86_64-apple-darwin -o tmp.x tmp.s 
+  cc -target x86_64-apple-darwin -o tmp.x tmp.s tmp2.o
   ./tmp.x
   actual="$?"
 
@@ -69,13 +85,15 @@ cc -target x86_64-apple-darwin -o tmp tmp.s
 ./tmp
 
 # *と&
-assert 3 "int x; x = 3; int y; y = 5; int z; z = &y + 16; return *z;";
+assert 3 "int x; x = 3; int y; y = 5; int z; z = &y + 2; return *z;";
 
 # ポインタ型
 assert 3 "int x; int *y; y = &x; *y = 3; return x;";
 
 
-
-
+# ポインタの演算
+assert 4 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 2; return *q; '
+assert 8 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 3; return *q; '
+assert 2 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 2; q = q - 1; return *q; '
 
 echo OK

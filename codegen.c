@@ -30,7 +30,7 @@ void gen(Node* node) {
     printf("\n_%s:\n", node->funcname);
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
-    printf("  sub rsp, 416\n");  // ローカル変数用のスタック領域を確保
+    printf("  sub rsp, 208\n");  // ローカル変数用のスタック領域を確保
 
     // 引数をスタックに保存（x86-64呼び出し規約に従う）
     char* arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
@@ -153,6 +153,8 @@ void gen(Node* node) {
     case ND_NUM:
       printf("  push %d\n", node->val);
       return;
+    case ND_DECL:
+      return;
     case ND_LVAR:
       gen_lval(node);
       printf("  pop rax\n");
@@ -187,9 +189,22 @@ void gen(Node* node) {
 
   switch (node->kind) {
     case ND_ADD:
+      // ポインタ + 整数の場合、整数側に要素サイズを掛ける
+      if (node->lhs->type && node->lhs->type->ty == PTR) {
+        int size =
+            size_of(node->lhs->type->ptr_to);  // ポインタが指す型のサイズ
+        printf("  imul rdi, %d\n", size);
+      }
       printf("  add rax, rdi\n");
       break;
     case ND_SUB:
+      // ポインタ - 整数の場合
+      if (node->lhs->type && node->lhs->type->ty == PTR && node->rhs->type &&
+          node->rhs->type->ty != PTR) {
+        int size =
+            size_of(node->lhs->type->ptr_to);  // ポインタが指す型のサイズ
+        printf("  imul rdi, %d\n", size);
+      }
       printf("  sub rax, rdi\n");
       break;
     case ND_MUL:

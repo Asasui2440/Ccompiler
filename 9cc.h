@@ -31,6 +31,7 @@ typedef enum {
   ND_FUNCDEF,  // 関数パラメータ
   ND_ADDR,     // &
   ND_DEREF,    // *
+  ND_DECL,     // 変数宣言
 } NodeKind;
 
 // トークンの種類
@@ -113,6 +114,7 @@ extern Node* code[100];
 extern LVar* locals;
 extern int label_number;
 extern Vector* stms;
+
 // parse.c
 void error(char* fmt, ...);
 void error_at(char* loc, char* input, char* fmt, ...);
@@ -144,5 +146,6 @@ Node* new_node_num(int val);
 
 // codegen.c
 void gen(Node* node);
+int size_of(Type* type);
 
 #endif

@@ -329,7 +329,7 @@ Node* primary() {
       typ = ptr_type;          // 現在の型を更新
     }
 
-    Node* node = new_node(ND_LVAR);
+    Node* node = new_node(ND_DECL);  // ND_LVAR -> ND_DECL に変更
     Token* tok = consume_ident();
     if (!tok) {
       error("変数名がありません");
@@ -359,6 +359,7 @@ Node* primary() {
     if (consume("(")) {
       node->kind = ND_CALL;
       node->funcname = strndup(tok->str, tok->len);
+      // node->type->ty = INT;
       Vector* args = new_vector();
 
       // 引数がある時
@@ -380,6 +381,7 @@ Node* primary() {
       LVar* lvar = find_lvar(tok);
       if (lvar) {
         node->offset = lvar->offset;
+        node->type = lvar->type;  // 変数の型情報を設定
       } else {
         printf("変数が定義されていません\n");
         exit(1);
@@ -390,7 +392,9 @@ Node* primary() {
 
   // そうでなければ数値のはず
   Node* node = new_node_num(expect_number());
-  node->type = INT;
+  Type* typ = calloc(1, sizeof(Type));
+  typ->ty = INT;
+  node->type = typ;
   return node;
 }
 
@@ -448,11 +452,24 @@ Node* unary() {
   if (consume("*")) {
     Node* node = new_node(ND_DEREF);
     node->lhs = unary();
+    // *演算子の結果は、ポインタが指す型になる
+    if (node->lhs->type && node->lhs->type->ty == PTR) {
+      node->type = node->lhs->type->ptr_to;
+    }
     return node;
   }
   if (consume("&")) {
     Node* node = new_node(ND_ADDR);
     node->lhs = unary();
+    // &演算子の結果はポインタ型になる
+    if (node->lhs->type) {
+      Type* ptr_type = calloc(1, sizeof(Type));
+      ptr_type->ty = PTR;
+
+      // &a (aはint) なら、 &aの型は pointer → int (intのポインタ)
+      ptr_type->ptr_to = node->lhs->type;
+      node->type = ptr_type;
+    }
     return node;
   }
   return primary();
