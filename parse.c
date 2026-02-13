@@ -59,6 +59,12 @@ bool consume_else() {
   return true;
 }
 
+bool consume_sizeof() {
+  if (token->kind != TK_SIZEOF) return false;
+  token = token->next;
+  return true;
+}
+
 // プログラムの終わり
 bool at_eof() { return token->kind == TK_EOF; }
 
@@ -83,27 +89,11 @@ int expect_number() {
 
 // 次のトークンがintの場合、トークンを1つ読み進める。
 // それ以外の場合にはエラーを報告する。
-int expect_int() {
+void expect_int() {
   if (token->kind != TK_INT) {
     error_at(token->str, user_input, "int型が必要です");
   }
   token = token->next;
-}
-
-Vector* new_vector() {
-  Vector* vec = calloc(1, sizeof(Vector));
-  vec->capacity = 8;  // 初期容量
-  vec->data = calloc(vec->capacity, sizeof(Node*));
-  vec->len = 0;
-  return vec;
-}
-
-void vec_push(Vector* vec, Node* elem) {
-  if (vec->len == vec->capacity) {
-    vec->capacity *= 2;
-    vec->data = realloc(vec->data, vec->capacity * sizeof(Node*));
-  }
-  vec->data[vec->len++] = elem;
 }
 
 Node* new_node(NodeKind kind) {
@@ -119,40 +109,15 @@ Node* new_binary(NodeKind kind, Node* lhs, Node* rhs) {
   return node;
 }
 
+// intのnodeを作り、その値を登録
 Node* new_node_num(int val) {
   Node* node = new_node(ND_NUM);
   node->val = val;
+
+  Type* type = calloc(1, sizeof(Type));
+  type->ty = INT;
+  node->type = type;
   return node;
-}
-
-// エラーを表示する関数
-void error_at(char* loc, char* input, char* fmt, ...) {
-  // エラー箇所を示す位置を計算
-  int pos = loc - input;
-
-  // 入力全体を表示
-  fprintf(stderr, "%s\n", input);
-
-  // エラー箇所を示すカーソルを表示
-  fprintf(stderr, "%*s^\n", pos, "");
-
-  // 可変引数を処理してエラーメッセージを表示
-  va_list ap;
-  va_start(ap, fmt);
-  vfprintf(stderr, fmt, ap);
-  va_end(ap);
-  fprintf(stderr, "\n");
-
-  // プログラムを終了
-  exit(1);
-}
-
-void error(char* fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-  vfprintf(stderr, fmt, ap);
-  fprintf(stderr, "\n");
-  exit(1);
 }
 
 // 関数定義をパース
@@ -373,9 +338,6 @@ Node* primary() {
 
   // そうでなければ数値のはず
   Node* node = new_node_num(expect_number());
-  Type* typ = calloc(1, sizeof(Type));
-  typ->ty = INT;
-  node->type = typ;
   return node;
 }
 
@@ -428,6 +390,19 @@ Node* assign() {
 }
 
 Node* unary() {
+  if (consume_sizeof()) {
+    Node* lhs = unary();
+
+    // sizeofの中身がポインタなら8を返す
+    if (lhs->type && lhs->type->ty == PTR) {
+      return new_node_num(8);
+
+      // 中身がintなら4を返す
+    } else if (lhs->type && lhs->type->ty == INT) {
+      return new_node_num(4);
+    }
+    error("sizeofの中身がポインタでもint型でもありません");
+  }
   if (consume("+")) return primary();
   if (consume("-")) return new_binary(ND_SUB, new_node_num(0), primary());
   if (consume("*")) {

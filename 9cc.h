@@ -116,9 +116,16 @@ extern LVar* locals;
 extern int label_number;
 extern Vector* stms;
 
-// parse.c
+// util.c
 void error(char* fmt, ...);
 void error_at(char* loc, char* input, char* fmt, ...);
+Vector* new_vector();
+void vec_push(Vector* vec, Node* elem);
+
+// tokenizer.c
+Token* tokenize(char* p);
+
+// parse.c
 bool consume(char* op);
 Token* consume_ident();
 bool consume_return();
@@ -129,7 +136,6 @@ bool consume_else();
 void expect(char* op);
 int expect_number();
 bool at_eof();
-Token* tokenize(char* p);
 void program();
 LVar* find_lvar(Token* tok);
 Node* stmt();
@@ -144,6 +150,8 @@ Node* primary();
 Node* new_node(NodeKind kind);
 Node* new_binary(NodeKind kind, Node* lhs, Node* rhs);
 Node* new_node_num(int val);
+
+// tokenizer.c
 
 // codegen.c
 void gen(Node* node);

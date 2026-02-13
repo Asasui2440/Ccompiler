@@ -96,4 +96,15 @@ assert 4 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 2; return *q; '
 assert 8 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 3; return *q; '
 assert 2 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 2; q = q - 1; return *q; '
 
+# sizeof演算子
+assert 4 'int x; sizeof(x);'
+assert 8 'int *y; sizeof(y);'
+assert 4 'int x; sizeof(x+3);'
+assert 8 'int *y; sizeof(y+3);'
+assert 4 'int *y; sizeof(*y);'
+assert 4 'sizeof(1);'
+assert 4 'sizeof(sizeof(1));'
+
+
+
 echo OK
