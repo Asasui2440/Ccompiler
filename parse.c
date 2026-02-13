@@ -383,8 +383,7 @@ Node* primary() {
         node->offset = lvar->offset;
         node->type = lvar->type;  // 変数の型情報を設定
       } else {
-        printf("変数が定義されていません\n");
-        exit(1);
+        error("変数が定義されていません\n");
       }
       return node;
     }
