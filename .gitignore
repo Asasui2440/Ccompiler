@@ -3,3 +3,5 @@
 tmp*
 a.out
 9cc
+foo.c
+9cc.dSYM*
