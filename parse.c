@@ -345,12 +345,27 @@ Node* mul() {
   Node* node = unary();
 
   for (;;) {
-    if (consume("*"))
-      node = new_binary(ND_MUL, node, unary());
-    else if (consume("/"))
-      node = new_binary(ND_DIV, node, unary());
-    else
+    if (consume("*")) {
+      Node* rhs = unary();
+      node = new_binary(ND_MUL, node, rhs);
+      // 乗算・除算の結果はINT型
+      if (node->lhs->type && node->rhs->type) {
+        Type* int_type = calloc(1, sizeof(Type));
+        int_type->ty = INT;
+        node->type = int_type;
+      }
+    } else if (consume("/")) {
+      Node* rhs = unary();
+      node = new_binary(ND_DIV, node, rhs);
+      // 乗算・除算の結果はINT型
+      if (node->lhs->type && node->rhs->type) {
+        Type* int_type = calloc(1, sizeof(Type));
+        int_type->ty = INT;
+        node->type = int_type;
+      }
+    } else {
       return node;
+    }
   }
 }
 
@@ -434,12 +449,39 @@ Node* unary() {
 Node* add() {
   Node* node = mul();
   for (;;) {
-    if (consume("+"))
-      node = new_binary(ND_ADD, node, mul());
-    else if (consume("-"))
-      node = new_binary(ND_SUB, node, mul());
-    else
+    if (consume("+")) {
+      Node* rhs = mul();
+      node = new_binary(ND_ADD, node, rhs);
+
+      // 型推論: ポインタ演算があればポインタ型、それ以外はINT型
+      if ((node->lhs->type && node->lhs->type->ty == PTR) ||
+          (node->rhs->type && node->rhs->type->ty == PTR)) {
+        Type* ptr_type = calloc(1, sizeof(Type));
+        ptr_type->ty = PTR;
+        node->type = ptr_type;
+      } else if (node->lhs->type && node->rhs->type) {
+        Type* int_type = calloc(1, sizeof(Type));
+        int_type->ty = INT;
+        node->type = int_type;
+      }
+    } else if (consume("-")) {
+      Node* rhs = mul();
+      node = new_binary(ND_SUB, node, rhs);
+
+      // 引き算の時も同様
+      if ((node->lhs->type && node->lhs->type->ty == PTR) ||
+          (node->rhs->type && node->rhs->type->ty == PTR)) {
+        Type* ptr_type = calloc(1, sizeof(Type));
+        ptr_type->ty = PTR;
+        node->type = ptr_type;
+      } else if (node->lhs->type && node->rhs->type) {
+        Type* int_type = calloc(1, sizeof(Type));
+        int_type->ty = INT;
+        node->type = int_type;
+      }
+    } else {
       return node;
+    }
   }
 }
 
