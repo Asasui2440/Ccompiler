@@ -68,7 +68,14 @@ cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
 cc -target x86_64-apple-darwin -o tmp tmp.s
 ./tmp
 
+# *と&
 assert 3 "int x; x = 3; int y; y = 5; int z; z = &y + 16; return *z;";
+
+# ポインタ型
+assert 3 "int x; int *y; y = &x; *y = 3; return x;";
+
+
+
 
 
 echo OK

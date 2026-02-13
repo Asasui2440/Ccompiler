@@ -50,6 +50,13 @@ typedef enum {
 typedef struct Node Node;
 typedef struct Token Token;
 typedef struct LVar LVar;
+typedef struct Type Type;
+
+// 型定義
+struct Type {
+  enum { INT, PTR } ty;
+  Type* ptr_to;
+};
 
 // ローカル変数の型
 struct LVar {
@@ -57,6 +64,7 @@ struct LVar {
   char* name;  // 変数の名前
   int len;     // 名前の長さ
   int offset;  // RBPからのオフセット
+  Type* type;
 };
 
 // トークン型
@@ -89,6 +97,7 @@ struct Node {
   int stmts_len;
   Node** params;   // ND_FUNCの引数リスト
   int params_len;  // 引数の数
+  Type* type;      // 型
 };
 
 typedef struct {

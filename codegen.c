@@ -2,10 +2,20 @@
 
 int label_number = 0;
 void gen_lval(Node* node) {
-  if (node->kind != ND_LVAR) error("代入の左辺値が変数ではありません");
-  printf("  mov rax, rbp\n");
-  printf("  sub rax, %d\n", node->offset);
-  printf("  push rax\n");
+  if (node->kind == ND_LVAR) {
+    printf("  mov rax, rbp\n");
+    printf("  sub rax, %d\n", node->offset);
+    printf("  push rax\n");
+    return;
+  }
+
+  if (node->kind == ND_DEREF) {
+    // デリファレンスの場合、中身を「右辺値」として評価
+    gen(node->lhs);  // ポインタの値（アドレス）を計算
+    return;          // そのアドレスがそのまま左辺値
+  }
+
+  error("代入の左辺値が変数でもポインタでもありません");
 }
 
 void gen(Node* node) {

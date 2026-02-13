@@ -319,18 +319,34 @@ Node* primary() {
   }
 
   if (consume_int()) {
+    Type* typ = calloc(1, sizeof(Type));
+    typ->ty = INT;
+
+    while (consume("*")) {
+      Type* ptr_type = calloc(1, sizeof(Type));
+      ptr_type->ty = PTR;      // ポインタ型に設定
+      ptr_type->ptr_to = typ;  // 元の型を参照
+      typ = ptr_type;          // 現在の型を更新
+    }
+
     Node* node = new_node(ND_LVAR);
     Token* tok = consume_ident();
+    if (!tok) {
+      error("変数名がありません");
+    }
     LVar* lvar = calloc(1, sizeof(LVar));
     lvar->next = locals;
     lvar->name = tok->str;
     lvar->len = tok->len;
+    lvar->type = typ;  // 型情報を保存
+
     if (locals) {
       lvar->offset = locals->offset + 16;
     } else {
       lvar->offset = 16;
     }
     node->offset = lvar->offset;
+    node->type = lvar->type;
     locals = lvar;
     return node;
   }
@@ -373,7 +389,9 @@ Node* primary() {
   }
 
   // そうでなければ数値のはず
-  return new_node_num(expect_number());
+  Node* node = new_node_num(expect_number());
+  node->type = INT;
+  return node;
 }
 
 Node* mul() {
