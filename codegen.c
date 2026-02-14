@@ -1,8 +1,11 @@
+#include <stdarg.h>  // 可変引数を扱うために必要
+
 #include "9cc.h"
 
 int label_number = 0;
 void gen_lval(Node* node) {
   if (node->kind == ND_LVAR) {
+    gen_comment("ローカル変数のアドレスを取得する");
     printf("  mov rax, rbp\n");
     printf("  sub rax, %d\n", node->offset);
     printf("  push rax\n");
@@ -10,7 +13,6 @@ void gen_lval(Node* node) {
   }
 
   if (node->kind == ND_DEREF) {
-    // デリファレンスの場合、中身を「右辺値」として評価
     gen(node->lhs);  // ポインタの値（アドレス）を計算
     return;          // そのアドレスがそのまま左辺値
   }
@@ -21,7 +23,16 @@ void gen_lval(Node* node) {
 int size_of(Type* type) {
   if (type->ty == PTR) return 8;  // ポインタは8バイト
   if (type->ty == INT) return 4;  // intは4バイト
-  return 0;
+  error("sizeofの中身がポインタでもint型でもありません");
+}
+
+void gen_comment(const char* format, ...) {
+  printf("# ");
+  va_list args;
+  va_start(args, format);
+  vprintf(format, args);  // 可変引数を処理
+  va_end(args);
+  printf("\n");
 }
 
 void gen(Node* node) {
@@ -53,23 +64,24 @@ void gen(Node* node) {
   if (node->kind == ND_BLOCK) {
     for (int i = 0; i < node->stmts_len; i++) {
       gen(node->stmts[i]);
-      printf("  pop rax\n");  // 各文の評価結果をポップ
     }
-    printf("  push rax\n");  // 最後の文の結果をプッシュ
     return;
   }
 
   if (node->kind == ND_RETURN) {
     gen(node->lhs);
+    gen_comment("リターンする");
     printf("  pop rax\n");  // スタックから値を取り出して rax に設定
     printf("  mov rsp, rbp\n");
-    printf("  pop rbp\n");
+    printf("  pop rbp\n");  // rbpを戻す
     printf("  ret\n");
     return;
   }
 
+  // if (A) B
   if (node->kind == ND_IF && node->els == NULL) {
     gen(node->cond);
+    gen_comment("IF (A) B");
     printf("  pop rax\n");
     printf("  cmp rax, 0\n");
     printf("  je  .Lend%d\n", label_number);
@@ -79,11 +91,13 @@ void gen(Node* node) {
     return;
   }
 
+  // if (A) B else C
   if (node->kind == ND_IF && node->els != NULL) {
     int lelse = label_number;
     int lend = label_number + 1;
     label_number += 2;
     gen(node->cond);
+    gen_comment("IF (A) B ELSE C");
     printf("  pop rax\n");
     printf("  cmp rax, 0\n");
     printf("  je  .Lelse%d\n", lelse);
@@ -98,6 +112,7 @@ void gen(Node* node) {
   if (node->kind == ND_WHILE) {
     int lbegin = label_number;
     int lend = label_number + 1;
+    gen_comment("WHILE文");
     printf(".Lbegin%d:\n", lbegin);
     gen(node->cond);
     printf("  pop rax\n");
@@ -115,6 +130,7 @@ void gen(Node* node) {
     int lbegin = label_number;
     int lend = label_number + 1;
     if (node->init) gen(node->init);
+    gen_comment("FOR文");
     printf(".Lbegin%d:\n", lbegin);
     if (node->cond) {
       gen(node->cond);
@@ -144,8 +160,8 @@ void gen(Node* node) {
       printf("  pop %s\n", arg_regs[i]);
     }
 
-    printf("  call _%s\n", node->funcname);  // 関数名にアンダースコアを追加
-    printf("  push rax\n");                  // 関数の戻り値をスタックにプッシュ
+    printf("  call _%s\n", node->funcname);
+    printf("  push rax\n");  // 関数の戻り値をスタックにプッシュ
     return;
   }
 
@@ -157,26 +173,38 @@ void gen(Node* node) {
       return;
     case ND_LVAR:
       gen_lval(node);
-      printf("  pop rax\n");
-      printf("  mov rax, [rax]\n");
-      printf("  push rax\n");
+      // 配列型の場合はアドレスをそのまま使う（配列からポインタへの減衰）
+      if (node->type && node->type->ty == ARRAY) {
+        // アドレスがスタックに積まれている状態でそのまま返す
+        return;
+      }
+      // 通常の変数の場合は値をロード
+      gen_comment("右辺値として変数の値を取得");
+      printf("  pop rax\n");         // raxにアドレスの値が入っているはず
+      printf("  mov rax, [rax]\n");  // [rax]でアドレスにある値を取得
+      printf("  push rax\n");        // ロードした値をpush
       return;
     case ND_ASSIGN:
       gen_lval(node->lhs);
+      gen_comment("ASSIGN : 左辺値として変数の値を取得");
       gen(node->rhs);
 
+      // スタックのトップにある右辺値を取り出してrdiに格納
       printf("  pop rdi\n");
+      // スタックの次の値(左辺値のアドレスを取り出す)
       printf("  pop rax\n");
-      printf("  mov [rax], rdi\n");
+      printf("  mov [rax], rdi\n");  // raxの値にrdiをセット
       printf("  push rdi\n");
       return;
     case ND_ADDR:
-      gen_lval(node->lhs);
+      gen_lval(node->lhs);  // nodeのアドレスを取得すれば良い
+      gen_comment("&演算 : &%d", node->lhs->val);
       return;
     case ND_DEREF:
-      gen(node->lhs);
-      printf("  pop rax\n");
-      printf("  mov rax, [rax]\n");
+      gen(node->lhs);  // まず値を計算する
+      gen_comment("単項*の計算 : %d", node->lhs->val);
+      printf("  pop rax\n");         // スタックのtopにある値を取得
+      printf("  mov rax, [rax]\n");  // 値をraxに入れる
       printf("  push rax\n");
       return;
   }
@@ -191,6 +219,7 @@ void gen(Node* node) {
     case ND_ADD:
       // ポインタ + 整数の場合、整数側に要素サイズを掛ける
       if (node->lhs->type && node->lhs->type->ty == PTR) {
+        gen_comment("ポインタの足し算");
         int size =
             size_of(node->lhs->type->ptr_to);  // ポインタが指す型のサイズ
         printf("  imul rdi, %d\n", size);
@@ -201,6 +230,7 @@ void gen(Node* node) {
       // ポインタ - 整数の場合
       if (node->lhs->type && node->lhs->type->ty == PTR && node->rhs->type &&
           node->rhs->type->ty != PTR) {
+        gen_comment("ポインタの引き算");
         int size =
             size_of(node->lhs->type->ptr_to);  // ポインタが指す型のサイズ
         printf("  imul rdi, %d\n", size);
@@ -211,11 +241,18 @@ void gen(Node* node) {
       printf("  imul rax, rdi\n");
       break;
     case ND_DIV:
+      // cqo .. raxに入っている64ビットの値を128ビットに引き延ばして
+      // rdxとraxにセットする
+      // idiv rdi ... raxをrdiで割って商をraxに、余りをrdxにセットする
       printf("  cqo\n");
       printf("  idiv rdi\n");
       break;
     case ND_EQ:  // ==
       printf("  cmp rax, rdi\n");
+      // sete... cmpで比較したレジスタが同じなら1,
+      // 違ったら0をALレジスタにセットする AL ..
+      // raxの下位8ビットを指すレジスタ
+      // rax全部を0か1にセットするので、上位56ビットをmovzx命令でゼロクリアする
       printf("  sete al\n");
       printf("  movzx rax, al\n");
       break;
