@@ -111,4 +111,8 @@ assert 1 'int a[1]; *a = 1; return *a;'
 assert 3 'int a[2]; *a = 1; *(a+1) = 2; int *p; p = a; return *p + *(p+1);'
 assert 4 'int x[3]; *x=3; *(x+1)=4; *(x+2)=5; return *(x+1);'
 
+assert 1 'int a[1]; *a = 1; return a[0];'
+assert 3 'int a[2]; *a = 2; a[1] = 1;  return a[0] + a[1];'
+assert 1 'int a[2]; *a = 2; a[1] = 1;  return a[0] - a[1];'
+
 echo OK

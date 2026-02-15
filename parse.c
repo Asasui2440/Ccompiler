@@ -122,6 +122,9 @@ Node* new_node_num(int val) {
 
 // 関数定義をパース
 Node* function() {
+  // 新しい関数を解析するので、ローカル変数リストをリセット
+  locals = NULL;
+
   expect_int();
   Token* tok = consume_ident();
   if (!tok) {
@@ -370,18 +373,16 @@ Node* primary() {
           Node* array_addr = calloc(1, sizeof(Node));
           array_addr->kind = ND_LVAR;
           array_addr->offset = lvar->offset;
-          // 配列の型を一時的にポインタ型に変換
+          // 配列型をそのまま保持（codegen.cで配列→アドレスの変換が行われる）
+          array_addr->type = lvar->type;
+
+          Node* addr = new_binary(ND_ADD, array_addr, index);
+          // 型の伝播：ポインタ型として設定
           if (lvar->type->ty == ARRAY && lvar->type->ptr_to) {
             Type* ptr_type = calloc(1, sizeof(Type));
             ptr_type->ty = PTR;
             ptr_type->ptr_to = lvar->type->ptr_to;
-            array_addr->type = ptr_type;
-          }
-
-          Node* addr = new_binary(ND_ADD, array_addr, index);
-          // 型の伝播
-          if (array_addr->type) {
-            addr->type = array_addr->type;
+            addr->type = ptr_type;
           }
 
           Node* deref = new_node(ND_DEREF);
@@ -390,6 +391,8 @@ Node* primary() {
             deref->type = lvar->type->ptr_to;
           }
           return deref;
+        } else {
+          return node;
         }
       } else {
         error("変数が定義されていません\n");

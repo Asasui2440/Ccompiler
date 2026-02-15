@@ -87,6 +87,7 @@ struct Node {
   int val;         // kindがND_NUMの場合のみ使う
   int offset;      // kindがND_LVARの場合のみ使う
   char* funcname;  // 関数名
+  int stack_size;  // ND_FUNCの場合、ローカル変数用のスタックサイズ
   struct {
     Node* cond;  // ifの条件式
     Node* then;  // 真の時

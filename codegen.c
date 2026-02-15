@@ -241,15 +241,18 @@ void gen(Node* node) {
       if (node->lhs->type &&
           (node->lhs->type->ty == PTR || node->lhs->type->ty == ARRAY)) {
         gen_comment("ポインタの足し算");
-        int size = size_of(node->lhs->type->ptr_to);
+        int size = node->lhs->type->ty == PTR
+                       ? size_of(node->lhs->type->ptr_to)
+                       : size_of(node->lhs->type->ptr_to);
         printf("  imul rdi, %d\n", size);
       }
       printf("  add rax, rdi\n");
       break;
     case ND_SUB:
+      // ポインタ - 整数の場合
       // 配列型の場合もポインタとして扱う
-      if (node->lhs->type && node->lhs->type->ty == PTR && node->rhs->type &&
-          node->rhs->type->ty != PTR) {
+      if (node->lhs->type &&
+          (node->lhs->type->ty == PTR || node->lhs->type->ty == ARRAY)) {
         gen_comment("ポインタの引き算");
         int size =
             size_of(node->lhs->type->ptr_to);  // ポインタが指す型のサイズ
