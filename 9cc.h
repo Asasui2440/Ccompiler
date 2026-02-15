@@ -56,8 +56,9 @@ typedef struct Type Type;
 
 // 型定義
 struct Type {
-  enum { INT, PTR } ty;
+  enum { INT, PTR, ARRAY } ty;
   Type* ptr_to;
+  size_t array_size;
 };
 
 // ローカル変数の型
@@ -156,5 +157,6 @@ Node* new_node_num(int val);
 // codegen.c
 void gen(Node* node);
 int size_of(Type* type);
+void gen_comment(const char* format, ...);
 
 #endif

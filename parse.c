@@ -138,6 +138,7 @@ Node* function() {
   if (!consume(")")) {
     expect_int();
     Token* param = consume_ident();
+
     if (param) {
       Node* p = new_node(ND_LVAR);
       p->offset = 8;  // 引数の最初のオフセット
@@ -251,6 +252,68 @@ Node* stmt() {
     return node;
   }
 
+  // 変数宣言
+  if (consume_int()) {
+    Type* typ = calloc(1, sizeof(Type));
+    typ->ty = INT;
+
+    while (consume("*")) {
+      Type* ptr_type = calloc(1, sizeof(Type));
+      ptr_type->ty = PTR;
+      ptr_type->ptr_to = typ;
+      typ = ptr_type;
+    }
+
+    Token* tok = consume_ident();
+    if (!tok) {
+      error("変数名がありません");
+    }
+
+    LVar* lvar = calloc(1, sizeof(LVar));
+    lvar->next = locals;
+    lvar->name = tok->str;
+    lvar->len = tok->len;
+
+    // 配列だった時: int a[10]など
+    if (consume("[")) {
+      Type* array_type = calloc(1, sizeof(Type));
+      array_type->ty = ARRAY;
+      array_type->array_size = expect_number();
+      array_type->ptr_to = typ;  // 配列の要素型
+      typ = array_type;
+      expect("]");
+    }
+
+    lvar->type = typ;
+
+    // オフセットを計算
+    if (locals) {
+      if (typ->ty == ARRAY) {
+        // 配列の場合: 配列サイズ × 要素のサイズ
+        lvar->offset = locals->offset + typ->array_size * size_of(typ->ptr_to);
+      } else {
+        // スカラー変数はすべて8バイト
+        lvar->offset = locals->offset + 8;
+      }
+    } else {
+      if (typ->ty == ARRAY) {
+        // 配列の場合: 配列サイズ × 要素のサイズ
+        lvar->offset = typ->array_size * size_of(typ->ptr_to);
+      } else {
+        // スカラー変数はすべて8バイト
+        lvar->offset = 8;
+      }
+    }
+    locals = lvar;
+
+    expect(";");
+    // 変数宣言は式として値を返さないので空のノードを返す
+    Node* node = new_node(ND_DECL);
+    node->offset = lvar->offset;
+    node->type = lvar->type;
+    return node;
+  }
+
   // 通常の式文
   node = expr();
   expect(";");
@@ -262,39 +325,6 @@ Node* primary() {
   if (consume("(")) {
     Node* node = expr();
     expect(")");
-    return node;
-  }
-
-  if (consume_int()) {
-    Type* typ = calloc(1, sizeof(Type));
-    typ->ty = INT;
-
-    while (consume("*")) {
-      Type* ptr_type = calloc(1, sizeof(Type));
-      ptr_type->ty = PTR;      // ポインタ型に設定
-      ptr_type->ptr_to = typ;  // 元の型を参照
-      typ = ptr_type;          // 現在の型を更新
-    }
-
-    Node* node = new_node(ND_DECL);  // ND_LVAR -> ND_DECL に変更
-    Token* tok = consume_ident();
-    if (!tok) {
-      error("変数名がありません");
-    }
-    LVar* lvar = calloc(1, sizeof(LVar));
-    lvar->next = locals;
-    lvar->name = tok->str;
-    lvar->len = tok->len;
-    lvar->type = typ;  // 型情報を保存
-
-    if (locals) {
-      lvar->offset = locals->offset + 8;
-    } else {
-      lvar->offset = 8;
-    }
-    node->offset = lvar->offset;
-    node->type = lvar->type;
-    locals = lvar;
     return node;
   }
 
@@ -329,6 +359,38 @@ Node* primary() {
       if (lvar) {
         node->offset = lvar->offset;
         node->type = lvar->type;  // 変数の型情報を設定
+
+        // 配列アクセス: a[i]
+        if (consume("[")) {
+          Node* index = expr();
+          expect("]");
+
+          // 配列アクセスはポインタ演算として扱う (a[i] は *(a + i) と同じ)
+          // まず配列をポインタとして扱うノードを作成
+          Node* array_addr = calloc(1, sizeof(Node));
+          array_addr->kind = ND_LVAR;
+          array_addr->offset = lvar->offset;
+          // 配列の型を一時的にポインタ型に変換
+          if (lvar->type->ty == ARRAY && lvar->type->ptr_to) {
+            Type* ptr_type = calloc(1, sizeof(Type));
+            ptr_type->ty = PTR;
+            ptr_type->ptr_to = lvar->type->ptr_to;
+            array_addr->type = ptr_type;
+          }
+
+          Node* addr = new_binary(ND_ADD, array_addr, index);
+          // 型の伝播
+          if (array_addr->type) {
+            addr->type = array_addr->type;
+          }
+
+          Node* deref = new_node(ND_DEREF);
+          deref->lhs = addr;
+          if (lvar->type->ty == ARRAY && lvar->type->ptr_to) {
+            deref->type = lvar->type->ptr_to;
+          }
+          return deref;
+        }
       } else {
         error("変数が定義されていません\n");
       }
@@ -454,8 +516,13 @@ Node* add() {
       node = new_binary(ND_ADD, node, rhs);
 
       // 型推論: ポインタ演算があればポインタ型、それ以外はINT型
-      if ((node->lhs->type && node->lhs->type->ty == PTR) ||
-          (node->rhs->type && node->rhs->type->ty == PTR)) {
+      // 配列型もポインタとして扱う
+      int lhs_is_ptr = (node->lhs->type && (node->lhs->type->ty == PTR ||
+                                            node->lhs->type->ty == ARRAY));
+      int rhs_is_ptr = (node->rhs->type && (node->rhs->type->ty == PTR ||
+                                            node->rhs->type->ty == ARRAY));
+
+      if (lhs_is_ptr || rhs_is_ptr) {
         Type* ptr_type = calloc(1, sizeof(Type));
         ptr_type->ty = PTR;
         node->type = ptr_type;
@@ -469,8 +536,13 @@ Node* add() {
       node = new_binary(ND_SUB, node, rhs);
 
       // 引き算の時も同様
-      if ((node->lhs->type && node->lhs->type->ty == PTR) ||
-          (node->rhs->type && node->rhs->type->ty == PTR)) {
+      // 配列型もポインタとして扱う
+      int lhs_is_ptr = (node->lhs->type && (node->lhs->type->ty == PTR ||
+                                            node->lhs->type->ty == ARRAY));
+      int rhs_is_ptr = (node->rhs->type && (node->rhs->type->ty == PTR ||
+                                            node->rhs->type->ty == ARRAY));
+
+      if (lhs_is_ptr || rhs_is_ptr) {
         Type* ptr_type = calloc(1, sizeof(Type));
         ptr_type->ty = PTR;
         node->type = ptr_type;

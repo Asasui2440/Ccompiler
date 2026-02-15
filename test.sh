@@ -35,7 +35,7 @@ assert() {
   fi
 }
 
-assert 0 "0;"
+assert 0 "return 0;"
 assert 42 "42;"
 assert 21 "5+20-4;"
 assert 47 "5+6*7;"
@@ -50,7 +50,7 @@ assert 1 "1<2;"
 assert 1 "1<=2;"
 assert 0 "1>=2;"
 assert 1 "1>=1;"
-assert 1 "return 1>0;"
+assert 1 "1>0;"
 assert 4 "int a; int b; a = 2; b = 2; return a+b;"
 assert 1 "int a; a = 2; if (a == 2) { return 1; }"
 assert 5 "int a; a = 2; while(a < 5) a = a + 1; return a;"
@@ -95,6 +95,7 @@ assert 3 "int x; int *y; y = &x; *y = 3; return x;";
 assert 4 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 2; return *q; '
 assert 8 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 3; return *q; '
 assert 2 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 2; q = q - 1; return *q; '
+assert 6 'int *p; alloc4(&p, 1, 2, 4, 8); int *q; q = p + 2; return *q + *(p+1); '
 
 # sizeof演算子
 assert 4 'int x; sizeof(x);'
@@ -105,6 +106,9 @@ assert 4 'int *y; sizeof(*y);'
 assert 4 'sizeof(1);'
 assert 4 'sizeof(sizeof(1));'
 
-
+# 配列
+assert 1 'int a[1]; *a = 1; return *a;'
+assert 3 'int a[2]; *a = 1; *(a+1) = 2; int *p; p = a; return *p + *(p+1);'
+assert 4 'int x[3]; *x=3; *(x+1)=4; *(x+2)=5; return *(x+1);'
 
 echo OK

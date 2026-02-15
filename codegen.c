@@ -22,7 +22,7 @@ void gen_lval(Node* node) {
 
 int size_of(Type* type) {
   if (type->ty == PTR) return 8;  // ポインタは8バイト
-  if (type->ty == INT) return 4;  // intは4バイト
+  if (type->ty == INT) return 4;  // intは4バイト（配列の要素サイズ）
   error("sizeofの中身がポインタでもint型でもありません");
 }
 
@@ -46,24 +46,23 @@ void gen(Node* node) {
     // 引数をスタックに保存（x86-64呼び出し規約に従う）
     char* arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
     for (int i = 0; i < node->params_len && i < 6; i++) {
-      // 引数をメモリに保存
+      // 引数をメモリに保存（すべて8バイトとして扱う）
       printf("  mov [rbp-%d], %s\n", node->params[i]->offset, arg_regs[i]);
     }
 
     // 関数本体を生成
     gen(node->body);
-
-    // 明示的なreturnがない場合のエピローグ
-    printf("  pop rax\n");
-    printf("  mov rsp, rbp\n");
-    printf("  pop rbp\n");
-    printf("  ret\n");
     return;
   }
 
   if (node->kind == ND_BLOCK) {
     for (int i = 0; i < node->stmts_len; i++) {
       gen(node->stmts[i]);
+      // return文と変数の宣言以外の場合のみpopする
+      if (node->stmts[i]->kind != ND_RETURN &&
+          node->stmts[i]->kind != ND_DECL) {
+        printf("  pop rax\n");
+      }
     }
     return;
   }
@@ -178,10 +177,10 @@ void gen(Node* node) {
         // アドレスがスタックに積まれている状態でそのまま返す
         return;
       }
-      // 通常の変数の場合は値をロード
+      // 通常の変数の場合は値をロード（すべて8バイトとして扱う）
       gen_comment("右辺値として変数の値を取得");
       printf("  pop rax\n");         // raxにアドレスの値が入っているはず
-      printf("  mov rax, [rax]\n");  // [rax]でアドレスにある値を取得
+      printf("  mov rax, [rax]\n");  // すべて64ビットとして読み込む
       printf("  push rax\n");        // ロードした値をpush
       return;
     case ND_ASSIGN:
@@ -193,7 +192,20 @@ void gen(Node* node) {
       printf("  pop rdi\n");
       // スタックの次の値(左辺値のアドレスを取り出す)
       printf("  pop rax\n");
-      printf("  mov [rax], rdi\n");  // raxの値にrdiをセット
+      // ポインタ経由のアクセス（配列要素など）の場合は4バイトアクセス
+      if (node->lhs->kind == ND_DEREF) {
+        // デリファレンス結果の型をチェック
+        if (node->lhs->type && node->lhs->type->ty == PTR) {
+          // ポインタ型への代入は8バイト
+          printf("  mov [rax], rdi\n");
+        } else {
+          // int型（配列要素）への代入は4バイト
+          printf("  mov [rax], edi\n");
+        }
+      } else {
+        // スカラー変数は8バイト
+        printf("  mov [rax], rdi\n");
+      }
       printf("  push rdi\n");
       return;
     case ND_ADDR:
@@ -202,9 +214,16 @@ void gen(Node* node) {
       return;
     case ND_DEREF:
       gen(node->lhs);  // まず値を計算する
-      gen_comment("単項*の計算 : %d", node->lhs->val);
-      printf("  pop rax\n");         // スタックのtopにある値を取得
-      printf("  mov rax, [rax]\n");  // 値をraxに入れる
+      gen_comment("単項*の計算");
+      printf("  pop rax\n");  // スタックのtopにある値を取得
+      // デリファレンス結果の型に応じてメモリアクセスサイズを決定
+      if (node->type && node->type->ty == PTR) {
+        // ポインタ型の場合は8バイト
+        printf("  mov rax, [rax]\n");
+      } else {
+        // int型（配列要素など）の場合は4バイト
+        printf("  movsxd rax, DWORD PTR [rax]\n");
+      }
       printf("  push rax\n");
       return;
   }
@@ -218,16 +237,17 @@ void gen(Node* node) {
   switch (node->kind) {
     case ND_ADD:
       // ポインタ + 整数の場合、整数側に要素サイズを掛ける
-      if (node->lhs->type && node->lhs->type->ty == PTR) {
+      // 配列型の場合もポインタとして扱う
+      if (node->lhs->type &&
+          (node->lhs->type->ty == PTR || node->lhs->type->ty == ARRAY)) {
         gen_comment("ポインタの足し算");
-        int size =
-            size_of(node->lhs->type->ptr_to);  // ポインタが指す型のサイズ
+        int size = size_of(node->lhs->type->ptr_to);
         printf("  imul rdi, %d\n", size);
       }
       printf("  add rax, rdi\n");
       break;
     case ND_SUB:
-      // ポインタ - 整数の場合
+      // 配列型の場合もポインタとして扱う
       if (node->lhs->type && node->lhs->type->ty == PTR && node->rhs->type &&
           node->rhs->type->ty != PTR) {
         gen_comment("ポインタの引き算");
