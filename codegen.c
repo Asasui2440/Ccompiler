@@ -12,6 +12,13 @@ void gen_lval(Node* node) {
     return;
   }
 
+  if (node->kind == ND_GVAR) {
+    gen_comment("グローバル変数のアドレスを取得する");
+    printf("  lea rax, [rip + _%s]\n", node->funcname);
+    printf("  push rax\n");
+    return;
+  }
+
   if (node->kind == ND_DEREF) {
     gen(node->lhs);  // ポインタの値（アドレス）を計算
     return;          // そのアドレスがそのまま左辺値
@@ -179,6 +186,19 @@ void gen(Node* node) {
       }
       // 通常の変数の場合は値をロード（すべて8バイトとして扱う）
       gen_comment("右辺値として変数の値を取得");
+      printf("  pop rax\n");         // raxにアドレスの値が入っているはず
+      printf("  mov rax, [rax]\n");  // すべて64ビットとして読み込む
+      printf("  push rax\n");        // ロードした値をpush
+      return;
+    case ND_GVAR:
+      gen_lval(node);
+      // 配列型の場合はアドレスをそのまま使う（配列からポインタへの減衰）
+      if (node->type && node->type->ty == ARRAY) {
+        // アドレスがスタックに積まれている状態でそのまま返す
+        return;
+      }
+      // 通常の変数の場合は値をロード（すべて8バイトとして扱う）
+      gen_comment("右辺値としてグローバル変数の値を取得");
       printf("  pop rax\n");         // raxにアドレスの値が入っているはず
       printf("  mov rax, [rax]\n");  // すべて64ビットとして読み込む
       printf("  push rax\n");        // ロードした値をpush

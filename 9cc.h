@@ -21,6 +21,7 @@ typedef enum {
   ND_LT,       // <
   ND_ASSIGN,   // =
   ND_LVAR,     // ローカル変数
+  ND_GVAR,     // グローバル変数
   ND_RETURN,   // return
   ND_IF,       // if
   ND_FOR,      // for
@@ -52,6 +53,7 @@ typedef enum {
 typedef struct Node Node;
 typedef struct Token Token;
 typedef struct LVar LVar;
+typedef struct GVar GVar;
 typedef struct Type Type;
 
 // 型定義
@@ -64,6 +66,14 @@ struct Type {
 // ローカル変数の型
 struct LVar {
   LVar* next;  // 次の変数かNULL
+  char* name;  // 変数の名前
+  int len;     // 名前の長さ
+  int offset;  // RBPからのオフセット
+  Type* type;
+};
+
+struct GVar {
+  GVar* next;  // 次の変数かNULL
   char* name;  // 変数の名前
   int len;     // 名前の長さ
   int offset;  // RBPからのオフセット
@@ -87,7 +97,6 @@ struct Node {
   int val;         // kindがND_NUMの場合のみ使う
   int offset;      // kindがND_LVARの場合のみ使う
   char* funcname;  // 関数名
-  int stack_size;  // ND_FUNCの場合、ローカル変数用のスタックサイズ
   struct {
     Node* cond;  // ifの条件式
     Node* then;  // 真の時
@@ -115,6 +124,7 @@ extern Token* token;
 extern char* user_input;
 extern Node* code[100];
 extern LVar* locals;
+extern GVar* globals;
 extern int label_number;
 extern Vector* stms;
 
@@ -140,6 +150,7 @@ int expect_number();
 bool at_eof();
 void program();
 LVar* find_lvar(Token* tok);
+GVar* find_gvar(Token* tok);
 Node* stmt();
 Node* expr();
 Node* assign();
@@ -152,6 +163,9 @@ Node* primary();
 Node* new_node(NodeKind kind);
 Node* new_binary(NodeKind kind, Node* lhs, Node* rhs);
 Node* new_node_num(int val);
+Node* top_level();
+Node* global_def(Token* tok);
+Node* function(Token* tok);
 
 // tokenizer.c
 

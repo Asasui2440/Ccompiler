@@ -3,7 +3,25 @@
 // グローバル変数の実体
 Node* code[100];
 LVar* locals;
+GVar* globals;
 Vector* stms;
+Type* type;
+
+// 変数を名前で検索する。見つからなかった場合はNULLを返す。
+LVar* find_lvar(Token* tok) {
+  for (LVar* var = locals; var; var = var->next)
+    if (var->len == tok->len && !memcmp(tok->str, var->name, var->len))
+      return var;
+  return NULL;
+}
+
+// グローバル変数を検索する。見つからなかった場合はNULLを返す。
+GVar* find_gvar(Token* tok) {
+  for (GVar* var = globals; var; var = var->next)
+    if (var->len == tok->len && !memcmp(tok->str, var->name, var->len))
+      return var;
+  return NULL;
+}
 
 // 次のトークンが期待している記号のときには、トークンを1つ読み進めて
 // 真を返す。それ以外の場合には偽を返す。
@@ -15,7 +33,35 @@ bool consume(char* op) {
   return true;
 }
 
-// ここではtokenの情報を返す (他はトークンをそのまま読み進めるだけ)
+// 型の前半を読んでtokenを進める。型を返す
+Type* consume_type() {
+  if (token->kind != TK_INT) {
+    error("型ではありません");
+  }
+  Type* type = calloc(1, sizeof(Type));
+  if (token->kind == TK_INT) {
+    type->ty = INT;
+    token = token->next;
+    while (consume("*")) {
+      Type* new_type = calloc(1, sizeof(Type));
+      new_type->ty = PTR;
+      new_type->ptr_to = type;
+      type = new_type;
+    }
+  }
+
+  return type;
+}
+
+bool is_next_token(char* op) {
+  if (memcmp(token->next->str, op, token->next->len) == 0) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+// ここではtokenの情報を返す。tokenを一つ読み進める
 Token* consume_ident() {
   if (token->kind != TK_IDENT) return NULL;
   Token* tok = token;
@@ -120,16 +166,74 @@ Node* new_node_num(int val) {
   return node;
 }
 
+Node* top_level() {
+  type = consume_type();
+  Token* tok = consume_ident();
+
+  if (!tok) {
+    error("関数名またはグローバル変数名がありません");
+  }
+
+  // consume_ident()の後、tokenは次のトークンを指しているので、
+  // 現在のtokenが"("かどうかを確認
+  if (token->kind == TK_RESERVED && token->len == 1 && token->str[0] == '(') {
+    return function(tok);
+  } else {
+    return global_def(tok);
+  }
+}
+
+Node* global_def(Token* tok) {
+  // グローバル変数宣言
+  GVar* gvar = calloc(1, sizeof(GVar));
+  gvar->next = globals;
+  gvar->name = strndup(tok->str, tok->len);
+  gvar->len = tok->len;
+
+  // 配列だった時: int a[10]など
+  if (consume("[")) {
+    Type* array_type = calloc(1, sizeof(Type));
+    array_type->ty = ARRAY;
+    array_type->array_size = expect_number();
+    array_type->ptr_to = type;  // 配列の要素型
+    type = array_type;
+    expect("]");
+  }
+
+  gvar->type = type;
+
+  // オフセットを計算
+  if (globals) {
+    if (type->ty == ARRAY) {
+      // 配列の場合: 配列サイズ × 要素のサイズ
+      gvar->offset = globals->offset + type->array_size * size_of(type->ptr_to);
+    } else {
+      // スカラー変数はすべて8バイト
+      gvar->offset = globals->offset + 8;
+    }
+  } else {
+    if (type->ty == ARRAY) {
+      // 配列の場合: 配列サイズ × 要素のサイズ
+      gvar->offset = type->array_size * size_of(type->ptr_to);
+    } else {
+      // スカラー変数はすべて8バイト
+      gvar->offset = 8;
+    }
+  }
+  globals = gvar;
+
+  expect(";");
+  // 変数宣言は式として値を返さないので空のノードを返す
+  Node* node = new_node(ND_DECL);
+  node->offset = gvar->offset;
+  node->type = gvar->type;
+  return node;
+}
+
 // 関数定義をパース
-Node* function() {
+Node* function(Token* tok) {
   // 新しい関数を解析するので、ローカル変数リストをリセット
   locals = NULL;
-
-  expect_int();
-  Token* tok = consume_ident();
-  if (!tok) {
-    error("関数名がありません");
-  }
 
   Node* node = new_node(ND_FUNC);
   node->funcname = strndup(tok->str, tok->len);
@@ -139,7 +243,7 @@ Node* function() {
   Vector* params = new_vector();
 
   if (!consume(")")) {
-    expect_int();
+    Type* arg_type = consume_type();
     Token* param = consume_ident();
 
     if (param) {
@@ -152,9 +256,11 @@ Node* function() {
       lvar->name = param->str;
       lvar->len = param->len;
       lvar->offset = 8;
+      lvar->type = arg_type;
       locals = lvar;
 
       while (consume(",")) {
+        arg_type = consume_type();
         param = consume_ident();
         if (!param) error("引数名がありません");
 
@@ -167,6 +273,7 @@ Node* function() {
         lvar->name = param->str;
         lvar->len = param->len;
         lvar->offset = locals->offset + 8;
+        lvar->type = arg_type;
         locals = lvar;
       }
     }
@@ -179,16 +286,15 @@ Node* function() {
 
   // 関数本体をパース
   node->body = stmt();
-
   return node;
 }
 
 void program() {
   int i = 0;
 
-  // トップレベルでは関数定義のみを許可
+  // 関数定義またはグローバル変数定義
   while (!at_eof()) {
-    code[i++] = function();
+    code[i++] = top_level();
   }
   code[i] = NULL;
 }
@@ -357,45 +463,57 @@ Node* primary() {
 
     } else {
       // 変数の場合
-      node->kind = ND_LVAR;
       LVar* lvar = find_lvar(tok);
+      GVar* gvar = find_gvar(tok);
+
       if (lvar) {
+        node->kind = ND_LVAR;
         node->offset = lvar->offset;
-        node->type = lvar->type;  // 変数の型情報を設定
+        node->type = lvar->type;
+      } else if (gvar) {
+        node->kind = ND_GVAR;
+        node->funcname =
+            strndup(gvar->name, gvar->len);  // グローバル変数名を保存
+        node->offset = gvar->offset;
+        node->type = gvar->type;
+      } else {
+        error("変数が宣言されていません");
+      }
 
-        // 配列アクセス: a[i]
-        if (consume("[")) {
-          Node* index = expr();
-          expect("]");
+      // 配列アクセス: a[i]
+      if (consume("[")) {
+        Node* index = expr();
+        expect("]");
 
-          // 配列アクセスはポインタ演算として扱う (a[i] は *(a + i) と同じ)
-          // まず配列をポインタとして扱うノードを作成
-          Node* array_addr = calloc(1, sizeof(Node));
+        // 配列アクセスはポインタ演算として扱う (a[i] は *(a + i) と同じ)
+        Node* array_addr = calloc(1, sizeof(Node));
+        if (lvar) {
           array_addr->kind = ND_LVAR;
           array_addr->offset = lvar->offset;
-          // 配列型をそのまま保持（codegen.cで配列→アドレスの変換が行われる）
           array_addr->type = lvar->type;
-
-          Node* addr = new_binary(ND_ADD, array_addr, index);
-          // 型の伝播：ポインタ型として設定
-          if (lvar->type->ty == ARRAY && lvar->type->ptr_to) {
-            Type* ptr_type = calloc(1, sizeof(Type));
-            ptr_type->ty = PTR;
-            ptr_type->ptr_to = lvar->type->ptr_to;
-            addr->type = ptr_type;
-          }
-
-          Node* deref = new_node(ND_DEREF);
-          deref->lhs = addr;
-          if (lvar->type->ty == ARRAY && lvar->type->ptr_to) {
-            deref->type = lvar->type->ptr_to;
-          }
-          return deref;
         } else {
-          return node;
+          array_addr->kind = ND_GVAR;
+          array_addr->funcname = strndup(gvar->name, gvar->len);
+          array_addr->offset = gvar->offset;
+          array_addr->type = gvar->type;
         }
-      } else {
-        error("変数が定義されていません\n");
+
+        Node* addr = new_binary(ND_ADD, array_addr, index);
+        // 型の伝播：ポインタ型として設定
+        Type* var_type = lvar ? lvar->type : gvar->type;
+        if (var_type->ty == ARRAY && var_type->ptr_to) {
+          Type* ptr_type = calloc(1, sizeof(Type));
+          ptr_type->ty = PTR;
+          ptr_type->ptr_to = var_type->ptr_to;
+          addr->type = ptr_type;
+        }
+
+        Node* deref = new_node(ND_DEREF);
+        deref->lhs = addr;
+        if (var_type->ty == ARRAY && var_type->ptr_to) {
+          deref->type = var_type->ptr_to;
+        }
+        return deref;
       }
       return node;
     }
@@ -558,12 +676,4 @@ Node* add() {
       return node;
     }
   }
-}
-
-// 変数を名前で検索する。見つからなかった場合はNULLを返す。
-LVar* find_lvar(Token* tok) {
-  for (LVar* var = locals; var; var = var->next)
-    if (var->len == tok->len && !memcmp(tok->str, var->name, var->len))
-      return var;
-  return NULL;
 }

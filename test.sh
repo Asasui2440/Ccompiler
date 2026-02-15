@@ -35,6 +35,24 @@ assert() {
   fi
 }
 
+# グローバル変数や複数関数定義用のassert（main()で囲まない）
+assert_program() {
+  expected="$1"
+  input="$2"
+
+  ./9cc "$input" > tmp.s
+  cc -target x86_64-apple-darwin -o tmp.x tmp.s tmp2.o
+  ./tmp.x
+  actual="$?"
+
+  if [ "$actual" = "$expected" ]; then
+    echo "$input => $actual"
+  else
+    echo "$input => $expected expected, but got $actual"
+    exit 1
+  fi
+}
+
 assert 0 "return 0;"
 assert 42 "42;"
 assert 21 "5+20-4;"
@@ -111,8 +129,17 @@ assert 1 'int a[1]; *a = 1; return *a;'
 assert 3 'int a[2]; *a = 1; *(a+1) = 2; int *p; p = a; return *p + *(p+1);'
 assert 4 'int x[3]; *x=3; *(x+1)=4; *(x+2)=5; return *(x+1);'
 
+# 配列の添え字
 assert 1 'int a[1]; *a = 1; return a[0];'
 assert 3 'int a[2]; *a = 2; a[1] = 1;  return a[0] + a[1];'
 assert 1 'int a[2]; *a = 2; a[1] = 1;  return a[0] - a[1];'
 
+# グローバル変数
+assert_program 42 'int foo; int a() { foo = 42; return foo; } int main() { return a(); }' 
+assert_program 42 'int *y; int a() { int x; y = &x; *y = 42; return x; } int main() { return a(); }' 
+assert_program 3 'int foo[2]; int a() { foo[0] = 1; foo[1] = 2; return foo[0] + foo[1]; } int main() { return a(); }' 
+
+assert_program 1 'int x; int* a() { x = 1; return &x; } int main() { int *b; b = a(); return *b; }' 
+assert_program 5 'int arr[10]; int* a() { arr[3] = 5; return &arr[3]; } int main() { int *b; b = a(); return *b; }'
+assert_program 42 'int* a(int *p) { *p = 42; return p; } int main() { int x; int *b; b = a(&x); return *b; }'
 echo OK
