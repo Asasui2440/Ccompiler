@@ -23,8 +23,11 @@ int main(int argc, char** argv) {
       // 配列の場合：サイズ分のゼロを確保
       printf("  .zero %zu\n",
              gvar->type->array_size * size_of(gvar->type->ptr_to));
+    } else if (gvar->type->ty == CHAR) {
+      // char型：1バイト確保
+      printf("  .byte 0\n");
     } else {
-      // スカラー変数：8バイト確保(値は0に初期化)
+      // int型、ポインタ型：8バイト確保(値は0に初期化)
       printf("  .quad 0\n");
     }
   }

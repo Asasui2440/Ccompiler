@@ -35,19 +35,21 @@ bool consume(char* op) {
 
 // 型の前半を読んでtokenを進める。型を返す
 Type* consume_type() {
-  if (token->kind != TK_INT) {
+  if (token->kind != TK_INT && token->kind != TK_CHAR) {
     error("型ではありません");
   }
   Type* type = calloc(1, sizeof(Type));
   if (token->kind == TK_INT) {
     type->ty = INT;
-    token = token->next;
-    while (consume("*")) {
-      Type* new_type = calloc(1, sizeof(Type));
-      new_type->ty = PTR;
-      new_type->ptr_to = type;
-      type = new_type;
-    }
+  } else if (token->kind == TK_CHAR) {
+    type->ty = CHAR;
+  }
+  token = token->next;
+  while (consume("*")) {
+    Type* new_type = calloc(1, sizeof(Type));
+    new_type->ty = PTR;
+    new_type->ptr_to = type;
+    type = new_type;
   }
 
   return type;
@@ -208,16 +210,16 @@ Node* global_def(Token* tok) {
       // 配列の場合: 配列サイズ × 要素のサイズ
       gvar->offset = globals->offset + type->array_size * size_of(type->ptr_to);
     } else {
-      // スカラー変数はすべて8バイト
-      gvar->offset = globals->offset + 8;
+      // スカラー変数：型のサイズを使う
+      gvar->offset = globals->offset + size_of(type);
     }
   } else {
     if (type->ty == ARRAY) {
       // 配列の場合: 配列サイズ × 要素のサイズ
       gvar->offset = type->array_size * size_of(type->ptr_to);
     } else {
-      // スカラー変数はすべて8バイト
-      gvar->offset = 8;
+      // スカラー変数：型のサイズを使う
+      gvar->offset = size_of(type);
     }
   }
   globals = gvar;
@@ -361,17 +363,9 @@ Node* stmt() {
     return node;
   }
 
-  // 変数宣言
-  if (consume_int()) {
-    Type* typ = calloc(1, sizeof(Type));
-    typ->ty = INT;
-
-    while (consume("*")) {
-      Type* ptr_type = calloc(1, sizeof(Type));
-      ptr_type->ty = PTR;
-      ptr_type->ptr_to = typ;
-      typ = ptr_type;
-    }
+  // 変数宣言（intまたはchar）
+  if (token->kind == TK_INT || token->kind == TK_CHAR) {
+    Type* typ = consume_type();
 
     Token* tok = consume_ident();
     if (!tok) {
@@ -401,16 +395,20 @@ Node* stmt() {
         // 配列の場合: 配列サイズ × 要素のサイズ
         lvar->offset = locals->offset + typ->array_size * size_of(typ->ptr_to);
       } else {
-        // スカラー変数はすべて8バイト
-        lvar->offset = locals->offset + 8;
+        // スカラー変数：型のサイズを使う（ただし最低8バイト確保）
+        int var_size = size_of(typ);
+        if (var_size < 8) var_size = 8;  // スタックアライメントのため
+        lvar->offset = locals->offset + var_size;
       }
     } else {
       if (typ->ty == ARRAY) {
         // 配列の場合: 配列サイズ × 要素のサイズ
         lvar->offset = typ->array_size * size_of(typ->ptr_to);
       } else {
-        // スカラー変数はすべて8バイト
-        lvar->offset = 8;
+        // スカラー変数：型のサイズを使う（ただし最低8バイト確保）
+        int var_size = size_of(typ);
+        if (var_size < 8) var_size = 8;  // スタックアライメントのため
+        lvar->offset = var_size;
       }
     }
     locals = lvar;

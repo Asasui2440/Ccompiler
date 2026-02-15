@@ -142,4 +142,8 @@ assert_program 3 'int foo[2]; int a() { foo[0] = 1; foo[1] = 2; return foo[0] + 
 assert_program 1 'int x; int* a() { x = 1; return &x; } int main() { int *b; b = a(); return *b; }' 
 assert_program 5 'int arr[10]; int* a() { arr[3] = 5; return &arr[3]; } int main() { int *b; b = a(); return *b; }'
 assert_program 42 'int* a(int *p) { *p = 42; return p; } int main() { int x; int *b; b = a(&x); return *b; }'
+
+# 文字型
+assert 3 'char x[3]; x[0] = -1; x[1] = 2; int y; y = 4; return x[0] + y;'
+
 echo OK

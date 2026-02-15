@@ -15,6 +15,7 @@ typedef enum {
   ND_MUL,      // *
   ND_DIV,      // /
   ND_NUM,      // 整数
+  ND_CHAR,     // 文字型(char)
   ND_EQ,       // ==
   ND_NE,       // !=
   ND_LE,       // <=
@@ -40,6 +41,7 @@ typedef enum {
   TK_RESERVED,  // 記号
   TK_IDENT,     // 識別子
   TK_NUM,       // 整数トークン
+  TK_CHAR,      // 文字型(char)
   TK_EOF,       // 入力の終わりを表すトークン
   TK_RETURN,    // return
   TK_IF,        // if
@@ -58,7 +60,7 @@ typedef struct Type Type;
 
 // 型定義
 struct Type {
-  enum { INT, PTR, ARRAY } ty;
+  enum { INT, PTR, ARRAY, CHAR } ty;
   Type* ptr_to;
   size_t array_size;
 };

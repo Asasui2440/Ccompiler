@@ -74,6 +74,12 @@ Token* tokenize(char* p) {
       continue;
     }
 
+    if (strncmp(p, "char", 4) == 0 && !is_alnum(p[4])) {
+      cur = new_token(TK_CHAR, cur, p, 4);
+      p += 4;
+      continue;
+    }
+
     if (startswith(p, "==") || startswith(p, "!=") || startswith(p, ">=") ||
         startswith(p, "<=")) {
       cur = new_token(TK_RESERVED, cur, p, 2);
