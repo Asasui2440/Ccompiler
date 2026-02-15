@@ -175,6 +175,10 @@ void gen(Node* node) {
       printf("  pop %s\n", arg_regs[i]);
     }
 
+    // System V ABIの規約: 可変長引数関数を呼ぶ時は、
+    // ベクトルレジスタで渡される浮動小数点引数の個数をALに入れる
+    // 浮動小数点数がないので常に0
+    printf("  mov al, 0\n");
     printf("  call _%s\n", node->funcname);
     printf("  push rax\n");  // 関数の戻り値をスタックにプッシュ
     return;
