@@ -6,6 +6,7 @@ LVar* locals;
 GVar* globals;
 Vector* stms;
 Type* type;
+Str_vec* strings;
 
 // 変数を名前で検索する。見つからなかった場合はNULLを返す。
 LVar* find_lvar(Token* tok) {
@@ -239,6 +240,7 @@ Node* function(Token* tok) {
 
   Node* node = new_node(ND_FUNC);
   node->funcname = strndup(tok->str, tok->len);
+  node->type = type;
 
   // 引数リストをパース
   expect("(");
@@ -309,6 +311,9 @@ Node* stmt() {
     Vector* stmts = new_vector();
 
     while (!consume("}")) {  // `}` が出現するまで繰り返す
+      if (at_eof()) {
+        error_at(token->str, user_input, "'}'が見つかりません");
+      }
       vec_push(stmts, stmt());
     }
 
@@ -363,7 +368,7 @@ Node* stmt() {
     return node;
   }
 
-  // 変数宣言（intまたはchar）
+  // 変数の宣言（intまたはchar）
   if (token->kind == TK_INT || token->kind == TK_CHAR) {
     Type* typ = consume_type();
 
@@ -427,12 +432,43 @@ Node* stmt() {
   return node;
 }
 
+Node* add_str_to_vec() {
+  Node* node = calloc(1, sizeof(Node));
+  node->kind = ND_STR;
+
+  // 文字列リテラルをvectorに追加
+  Str_vec* str = calloc(1, sizeof(Str_vec));
+  str->str = strndup(token->str, token->len);
+  str->len = token->len;
+  str->label = label_number++;
+  str->next = strings;
+  strings = str;
+
+  node->str_label = str->label;
+
+  // 文字列リテラルの型は char* (char へのポインタ)
+  Type* ptr_type = calloc(1, sizeof(Type));
+  ptr_type->ty = PTR;
+  Type* char_type = calloc(1, sizeof(Type));
+  char_type->ty = CHAR;
+  ptr_type->ptr_to = char_type;
+  node->type = ptr_type;
+
+  token = token->next;
+  return node;
+}
+
 Node* primary() {
   // 次のトークンが"("なら、"(" expr ")"のはず
   if (consume("(")) {
     Node* node = expr();
     expect(")");
     return node;
+  }
+
+  // 文字列リテラル
+  if (token->kind == TK_STR) {
+    return add_str_to_vec();
   }
 
   Token* tok = consume_ident();

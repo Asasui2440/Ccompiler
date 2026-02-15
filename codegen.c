@@ -184,6 +184,12 @@ void gen(Node* node) {
     case ND_NUM:
       printf("  push %d\n", node->val);
       return;
+    case ND_STR:
+      // 文字列リテラルのアドレスをプッシュ
+      gen_comment("文字列リテラルのアドレスを取得");
+      printf("  lea rax, [rip + .L.str%d]\n", node->str_label);
+      printf("  push rax\n");
+      return;
     case ND_DECL:
       return;
     case ND_LVAR:

@@ -87,6 +87,20 @@ Token* tokenize(char* p) {
       continue;
     }
 
+    // 文字列リテラル
+    if (*p == '"') {
+      char* q = p + 1;
+      while (*q != '"') {
+        if (*q == '\0') {
+          error_at(p, user_input, "文字列リテラルが閉じられていません");
+        }
+        q++;
+      }
+      cur = new_token(TK_STR, cur, p + 1, q - p - 1);
+      p = q + 1;
+      continue;
+    }
+
     if (strchr(",+-*/()<>=;{}&[]", *p)) {
       cur = new_token(TK_RESERVED, cur, p++, 1);
       continue;

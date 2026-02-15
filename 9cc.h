@@ -16,6 +16,7 @@ typedef enum {
   ND_DIV,      // /
   ND_NUM,      // 整数
   ND_CHAR,     // 文字型(char)
+  ND_STR,      // 文字列リテラル
   ND_EQ,       // ==
   ND_NE,       // !=
   ND_LE,       // <=
@@ -42,6 +43,7 @@ typedef enum {
   TK_IDENT,     // 識別子
   TK_NUM,       // 整数トークン
   TK_CHAR,      // 文字型(char)
+  TK_STR,       // 文字列リテラル
   TK_EOF,       // 入力の終わりを表すトークン
   TK_RETURN,    // return
   TK_IF,        // if
@@ -57,6 +59,7 @@ typedef struct Token Token;
 typedef struct LVar LVar;
 typedef struct GVar GVar;
 typedef struct Type Type;
+typedef struct Str_vec Str_vec;
 
 // 型定義
 struct Type {
@@ -99,6 +102,7 @@ struct Node {
   int val;         // kindがND_NUMの場合のみ使う
   int offset;      // kindがND_LVARの場合のみ使う
   char* funcname;  // 関数名
+  int str_label;   // 文字列リテラルのラベル番号（ND_STRの場合）
   struct {
     Node* cond;  // ifの条件式
     Node* then;  // 真の時
@@ -121,6 +125,14 @@ typedef struct {
   int len;
 } Vector;
 
+// 文字列リテラルを保存する構造体
+struct Str_vec {
+  char* str;      // 文字列の内容
+  int len;        // 文字列の長さ
+  int label;      // ラベル番号
+  Str_vec* next;  // 次の文字列
+};
+
 // グローバル変数
 extern Token* token;
 extern char* user_input;
@@ -129,6 +141,7 @@ extern LVar* locals;
 extern GVar* globals;
 extern int label_number;
 extern Vector* stms;
+extern Str_vec* strings;  // 文字列リテラルのリスト
 
 // util.c
 void error(char* fmt, ...);
@@ -168,8 +181,7 @@ Node* new_node_num(int val);
 Node* top_level();
 Node* global_def(Token* tok);
 Node* function(Token* tok);
-
-// tokenizer.c
+Node* add_str_to_vec();
 
 // codegen.c
 void gen(Node* node);

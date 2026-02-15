@@ -15,8 +15,19 @@ int main(int argc, char** argv) {
   printf(".intel_syntax noprefix\n");
   printf(".globl _main\n");
 
-  // グローバル変数の宣言を出力
+  // 文字列リテラルを出力
   printf("\n.data\n");
+  for (Str_vec* str = strings; str; str = str->next) {
+    printf(".L.str%d:\n", str->label);
+    printf("  .string \"");
+    for (int i = 0; i < str->len; i++) {
+      char c = str->str[i];
+      printf("%c", c);
+    }
+    printf("\"\n");
+  }
+
+  // グローバル変数の宣言を出力
   for (GVar* gvar = globals; gvar; gvar = gvar->next) {
     printf("_%s:\n", gvar->name);
     if (gvar->type->ty == ARRAY) {

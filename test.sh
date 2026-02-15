@@ -146,4 +146,7 @@ assert_program 42 'int* a(int *p) { *p = 42; return p; } int main() { int x; int
 # 文字型
 assert 3 'char x[3]; x[0] = -1; x[1] = 2; int y; y = 4; return x[0] + y;'
 
+# 文字列リテラル
+assert_program 100 'char* a;  char* printf(char* c){ return c; } char* foo() { a = "hello,world!";  return printf(a); } int main() { foo(); return 100; }'
+
 echo OK
