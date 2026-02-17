@@ -4,5 +4,6 @@ tmp*
 a.out
 9cc
 foo*
+fib*
 9cc.dSYM*
 input.txt

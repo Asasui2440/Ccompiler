@@ -155,4 +155,18 @@ assert 3 'char x[3]; x[0] = -1; x[1] = 2; int y; y = 4; return x[0] + y;'
 # 文字列リテラル
 assert_program 100 'char* a;  char* printf(char* c){ return c; } char* foo() { a = "hello,world!";  return printf(a); } int main() { foo(); return 100; }'
 
+# コメント
+# 行コメント
+assert 2 'int a; a = 2; 
+// a = 3;
+return a;'
+
+# ブロックコメント
+assert 2 'int a; a = 2; /* a = 3; */ return a;'
+assert 2  'int a; a = 2;
+/* a = 3;
+*/
+return a;'
+
+
 echo OK

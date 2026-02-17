@@ -1,5 +1,5 @@
 CFLAGS=-std=c11 -g -static
-SRCS=$(filter-out foo.c tmp2.c,$(wildcard *.c))
+SRCS=$(filter-out foo.c tmp2.c test.c fib.c,$(wildcard *.c))
 OBJS=$(SRCS:.c=.o)
 
 9cc: $(OBJS)
@@ -9,10 +9,13 @@ $(OBJS): 9cc.h
 
 test: 9cc
 	./test.sh
-	rm -f 9cc *.o *~ tmp*
+
+test-c: 9cc
+	$(CC) -o test_runner test.c
+	./test_runner
 
 clean:
-	rm -f 9cc *.o *~ tmp*
+	rm -f 9cc test_runner *.o *~ tmp*
 
 # 9ccで.sのファイルを作成
 %.s: %.c 9cc
