@@ -142,10 +142,12 @@ extern GVar* globals;
 extern int label_number;
 extern Vector* stms;
 extern Str_vec* strings;  // 文字列リテラルのリスト
+extern char* filename;
 
 // util.c
 void error(char* fmt, ...);
-void error_at(char* loc, char* input, char* fmt, ...);
+void error_at(char* loc, char* msg, ...);
+char* read_file(char* path);
 Vector* new_vector();
 void vec_push(Vector* vec, Node* elem);
 

@@ -6,8 +6,8 @@ int main(int argc, char** argv) {
     return 1;
   }
   // トークナイズする
-  user_input = argv[1];
-  token = tokenize(argv[1]);
+  user_input = read_file(argv[1]);
+  token = tokenize(user_input);
   locals = calloc(1, sizeof(LVar));
   program();
 

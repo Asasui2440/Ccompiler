@@ -22,7 +22,9 @@ assert() {
   # 自動的にmain()で囲む
   input="int main() { $input }"
 
-  ./9cc "$input" > tmp.s
+  # 一時ファイルに書き込む
+  echo "$input" > tmp.c
+  ./9cc tmp.c > tmp.s
   cc -target x86_64-apple-darwin -o tmp.x tmp.s tmp2.o
   ./tmp.x
   actual="$?"
@@ -40,7 +42,9 @@ assert_program() {
   expected="$1"
   input="$2"
 
-  ./9cc "$input" > tmp.s
+  # 一時ファイルに書き込む
+  echo "$input" > tmp.c
+  ./9cc tmp.c > tmp.s
   cc -target x86_64-apple-darwin -o tmp.x tmp.s tmp2.o
   ./tmp.x
   actual="$?"
@@ -83,7 +87,8 @@ int foo() {
     return 0;
 }' > foo.c
 cc -target x86_64-apple-darwin -c foo.c -o foo.o
-./9cc "int main() { foo(); }" > tmp.s
+echo "int main() { foo(); }" > tmp.c
+./9cc tmp.c > tmp.s
 cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
 ./tmp
 
@@ -93,14 +98,15 @@ void foo(int x, int y) {
     printf("%d\n", x + y); 
 }' > foo.c
 cc -target x86_64-apple-darwin -c foo.c -o foo.o
-./9cc "int main() {foo(3, 4);}" > tmp.s
-cc -target x86_64-apple-darwin -o tmp tmp.s foo.o
-./tmp
+echo "int main() {foo(3, 4);}" > tmp.c
+./9cc tmp.c > tmp.s
+cc -target x86_64-apple-darwin -o tmp.x tmp.s foo.o
+./tmp.x
 
 # 関数定義 フィボナッチ数列
-./9cc "$(cat fib.txt)" > tmp.s
-cc -target x86_64-apple-darwin -o tmp tmp.s
-./tmp
+./9cc fib.txt > tmp.s
+cc -target x86_64-apple-darwin -o tmp.x tmp.s
+./tmp.x
 
 # *と&
 assert 3 "int x; x = 3; int y; y = 5; int z; z = &y + 2; return *z;";
